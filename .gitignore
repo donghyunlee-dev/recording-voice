@@ -1,0 +1,24 @@
+.venv/
+.tools/
+.superpowers/
+__pycache__/
+.pytest_cache/
+
+web/node_modules/
+web/dist/
+
+# Voice recordings and generated audio are private local data.
+inputs/*
+!inputs/.gitkeep
+outputs/*
+!outputs/.gitkeep
+logs/*
+!logs/.gitkeep
+
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.pt
+*.safetensors
+.env

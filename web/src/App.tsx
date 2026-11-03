@@ -1,0 +1,261 @@
+import { Button, Card } from '@windsoft/ui'
+import { useEffect, useState } from 'react'
+import { AppShell, type AppRoute } from './components/AppShell'
+import { ConnectionStatus, type ConnectionState } from './components/ConnectionStatus'
+import { deleteRecording, getRecordingAudio, getRuntimeHealth, getRuntimeSystem, listModels, listOutputs, listRecordings, LocalRuntimeError, pairRuntime, type LocalModel, type LocalOutput, type LocalRecording, type RuntimeSystem } from './api/localRuntime'
+import { SetupScreen } from './components/Onboarding/SetupScreen'
+import { Recorder } from './features/recorder/Recorder'
+import { GenerationWorkspace } from './features/generation/GenerationWorkspace'
+import { AudioOutputCard } from './features/results/AudioOutputCard'
+import { StorybookPage } from './features/storybook/StorybookPage'
+
+function PageHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+  return (
+    <div className="page-heading">
+      <span className="section-kicker">{eyebrow}</span>
+      <h1>{title}</h1>
+      <p>{description}</p>
+    </div>
+  )
+}
+
+function RecordingPage({ onNavigate, token, recordings, onSaved }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onSaved: (recording: LocalRecording) => void }) {
+  return (
+    <div className="page-stack">
+      <PageHeading eyebrow="1단계 · 내 목소리 저장" title="먼저 내 목소리를 녹음해요" description="녹음한 목소리와 정확한 대본을 저장하면, 다음 단계에서 원하는 한국어 문장을 그 목소리로 읽어볼 수 있습니다." />
+      {recordings.length > 0 && <section className="next-step-card" aria-label="다음 단계">
+        <div><span className="section-kicker">다음 단계 · 목소리 확인</span><h2>저장한 목소리로 동화 문장을 읽어볼까요?</h2><p>먼저 짧은 대본을 읽어 음성을 확인하고, 다음 단계에서 장면 그림과 이야기 자막을 맞춘 동화로 완성합니다.</p></div>
+        <Button variant="primary" size="lg" onClick={() => onNavigate('generate')}>동화 문장 읽어보기 <span aria-hidden="true">→</span></Button>
+      </section>}
+      <div className="workspace-grid">
+        {token ? <Recorder token={token} onSaved={onSaved} /> : (
+          <Card className="recorder-card" title="새 녹음" description="로컬 앱을 연결하면 마이크 녹음과 PC 저장 기능을 사용할 수 있습니다.">
+            <div className="empty-state"><p>위쪽의 로컬 앱 연결을 완료하면 마이크 권한 요청과 녹음 컨트롤이 활성화됩니다.</p></div>
+          </Card>
+        )}
+        <Card className="side-card" title="좋은 녹음을 위한 준비" description="처음에는 짧고 또렷한 문장으로 테스트해 보세요.">
+          <ul className="recording-tips">
+            <li><span>01</span><div><strong>조용한 공간</strong><p>배경 음악과 울림이 적은 곳을 선택하세요.</p></div></li>
+            <li><span>02</span><div><strong>일정한 거리</strong><p>마이크에서 15–20cm 정도 떨어져 읽으세요.</p></div></li>
+            <li><span>03</span><div><strong>편안한 속도</strong><p>문장 사이에 짧게 쉬며 자연스럽게 말하세요.</p></div></li>
+          </ul>
+          <Button variant="secondary" onClick={() => onNavigate('settings')}>PC 설치 안내 보기</Button>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function VoicesPage({ onNavigate, token, recordings, onDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onDeleted: (id: string) => void }) {
+  return (
+    <div className="page-stack">
+      <PageHeading eyebrow="MY VOICES" title="내 음성" description="녹음 take를 보이스 프로필로 정리하고, 사용할 목소리를 직접 선택합니다." />
+      {!token || recordings.length === 0 ? (
+        <Card className="empty-card"><div className="empty-state">
+          <span className="empty-state__icon" aria-hidden="true">◌</span>
+          <h2>{token ? '아직 저장된 음성이 없습니다' : '로컬 앱 연결이 필요합니다'}</h2>
+          <p>{token ? '녹음 스튜디오에서 목소리를 녹음하고 대본과 함께 저장하세요.' : '위쪽에서 로컬 앱을 연결한 뒤 저장된 녹음을 확인할 수 있습니다.'}</p>
+          {token && <Button variant="primary" onClick={() => onNavigate('record')}>첫 음성 녹음하기</Button>}
+        </div></Card>
+      ) : recordings.map((recording) => (
+        <VoiceTake key={recording.id} recording={recording} token={token} onDeleted={onDeleted} />
+      ))}
+    </div>
+  )
+}
+
+function VoiceTake({ recording, token, onDeleted }: { recording: LocalRecording; token: string; onDeleted: (id: string) => void }) {
+  const [audioUrl, setAudioUrl] = useState('')
+  const [error, setError] = useState('')
+  useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl) }, [audioUrl])
+
+  async function loadAudio() {
+    try {
+      const audio = await getRecordingAudio(token, recording.id)
+      setAudioUrl(URL.createObjectURL(audio))
+      setError('')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '녹음을 불러오지 못했습니다.')
+    }
+  }
+
+  async function remove() {
+    await deleteRecording(token, recording.id)
+    onDeleted(recording.id)
+  }
+
+  return (
+    <Card className="voice-take-card" title={`녹음 take · ${new Date(recording.created_at).toLocaleString('ko-KR')}`} description={`${recording.duration_seconds.toFixed(1)}초 · ${recording.sample_rate.toLocaleString()} Hz`}>
+      <p className="voice-take-transcript">{recording.transcript}</p>
+      {!audioUrl ? <Button variant="secondary" onClick={() => void loadAudio()}>로컬 녹음 불러오기</Button> : <audio controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
+      <Button variant="ghost" onClick={() => void remove()}>삭제</Button>
+      {error && <p role="alert" className="recorder-error">{error}</p>}
+    </Card>
+  )
+}
+
+function GenerationPage({ onNavigate, token, recordings, initialText, draftSource, onOutputCreated }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; initialText?: string; draftSource?: 'recording' | 'storybook'; onOutputCreated: (output: LocalOutput) => void }) {
+  return (
+    <div className="page-stack">
+      <PageHeading eyebrow="2단계 · 내 목소리로 읽어보기" title={draftSource === 'recording' ? '저장한 대본으로 바로 음성을 만들어요' : draftSource === 'storybook' ? '동화 대본으로 엄마 목소리를 만들어요' : '동화 문장을 엄마 목소리로 읽어봐요'} description={draftSource === 'recording' ? '방금 저장한 녹음 대본이 입력되어 있어요. 저장된 목소리를 선택해 바로 음성을 만들 수 있습니다.' : draftSource === 'storybook' ? '선택한 동화의 짧은 대본이 입력되어 있어요. 저장된 목소리를 선택해 음성을 만들 수 있습니다.' : '동화 대본을 입력해 저장한 목소리로 들어보세요. 이 단계에서는 짧은 음성 결과를 만듭니다.'} />
+      {token ? <GenerationWorkspace token={token} recordings={recordings} initialText={initialText} draftSource={draftSource} onOutputCreated={onOutputCreated} onNavigate={() => onNavigate('record')} /> : <Card title="로컬 앱 연결 필요" description="위쪽에서 PC 로컬 앱을 연결하면 설치된 모델과 참조 녹음이 표시됩니다." />}
+    </div>
+  )
+}
+
+function ResultsPage({ onNavigate, token, outputs, onOutputDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; outputs: LocalOutput[]; onOutputDeleted: (id: string) => void }) {
+  return (
+    <div className="page-stack">
+      <PageHeading eyebrow="LOCAL OUTPUTS" title="생성 결과" description="완성된 오디오를 다시 듣고, 평가하고, WAV 파일로 저장합니다." />
+      {token && outputs.length > 0 ? outputs.map((output) => <AudioOutputCard key={output.id} token={token} output={output} onDeleted={onOutputDeleted} />) : <Card className="empty-card">
+        <div className="empty-state">
+          <span className="empty-state__icon" aria-hidden="true">▤</span>
+          <h2>아직 생성된 오디오가 없습니다</h2>
+          <p>첫 번째 생성이 끝나면 모델, 소요 시간, 평가 메모를 여기서 확인할 수 있습니다.</p>
+          <Button variant="primary" onClick={() => onNavigate('generate')}>음성 생성 준비</Button>
+        </div>
+      </Card>}
+    </div>
+  )
+}
+
+function SettingsPage({ systemInfo }: { systemInfo: RuntimeSystem | null }) {
+  return (
+    <div className="page-stack">
+      <PageHeading eyebrow="LOCAL SETUP" title="설정 및 설치" description="내 PC에서 음성 스튜디오를 실행하기 위한 준비 상태를 확인합니다." />
+      <div className="settings-grid">
+        <Card className="side-card" title="Windows + WSL2 설치 안내" description="웹 화면은 Vercel에서 열고, Python 런타임과 모델은 내 PC의 WSL2에서 실행합니다.">
+          <div className="privacy-detail"><span aria-hidden="true">01</span><p>Ubuntu WSL2를 준비하고 프로젝트 파일을 받은 뒤 안내에 따라 런타임을 설치하고 실행합니다.</p></div>
+          <div className="install-links">
+            <a href="/install/windows-wsl.md" target="_blank" rel="noreferrer">Windows + WSL2 설치 가이드</a>
+            <a href="/install/windows/install-local-voice.ps1" download>PowerShell 설치 스크립트</a>
+            <a href="/install/windows/start-local-voice.ps1" download>PowerShell 실행 스크립트</a>
+          </div>
+        </Card>
+        <Card title="PC 로컬 앱" description="모델을 실행하고 녹음 파일을 보관하는 작은 프로그램입니다.">
+          <div className="setting-row"><span className="setting-icon">01</span><div><strong>로컬 런타임</strong><p>PC의 loopback 주소에서 실행되며 이 브라우저 탭과 페어링합니다.</p></div><span className="setting-state">{systemInfo ? '연결됨' : '연결 필요'}</span></div>
+          <div className="setting-row"><span className="setting-icon">02</span><div><strong>로컬 연결 권한</strong><p>웹페이지가 내 PC의 로컬 앱에 접근할 때 브라우저 권한을 요청합니다.</p></div><span className="setting-state">{systemInfo ? '허용됨' : '연결 후 확인'}</span></div>
+          <div className="setting-row"><span className="setting-icon">03</span><div><strong>음성 모델</strong><p>Qwen3-TTS 0.6B Base는 음성 생성 화면에서 확인하고 설치할 수 있습니다.</p></div><span className="setting-state">모델 페이지에서 확인</span></div>
+        </Card>
+        {systemInfo && <Card title="이 PC에서 확인한 실행 자원" description="로컬 런타임이 보고한 정보이며 별도 서버로 보내지 않습니다.">
+          <div className="resource-grid">
+            <div><span>운영체제</span><strong>{systemInfo.os} · {systemInfo.architecture}</strong></div>
+            <div><span>논리 CPU</span><strong>{systemInfo.cpu_logical_count ?? '확인 불가'} 코어</strong></div>
+            <div><span>총 메모리</span><strong>{systemInfo.memory_total_gib?.toFixed(1) ?? '확인 불가'} GiB</strong></div>
+            <div><span>현재 가용 메모리</span><strong>{systemInfo.memory_available_gib?.toFixed(1) ?? '확인 불가'} GiB</strong></div>
+            <div><span>모델 캐시 여유</span><strong>{systemInfo.model_cache_disk_free_gib.toFixed(1)} GiB</strong></div>
+          </div>
+        </Card>}
+        <Card className="side-card" title="개인정보와 저장" description="음성과 텍스트는 내 PC 안에 보관합니다.">
+          <div className="privacy-detail"><span aria-hidden="true">⌑</span><p>Vercel은 화면만 제공합니다. 녹음 파일, 대본, 생성 음성은 로컬 앱이 관리하고 외부 추론 API로 보내지 않습니다.</p></div>
+          <div className="storage-detail"><span>저장 위치</span><strong>로컬 앱 연결 후 표시</strong></div>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function CurrentPage({ route, onNavigate, token, recordings, outputs, systemInfo, generationDraft, onGenerateStory, onRecordingSaved, onRecordingDeleted, onOutputCreated, onOutputDeleted }: { route: AppRoute; onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; outputs: LocalOutput[]; systemInfo: RuntimeSystem | null; generationDraft: { text: string; source: 'recording' | 'storybook' } | null; onGenerateStory: (text: string) => void; onRecordingSaved: (recording: LocalRecording) => void; onRecordingDeleted: (id: string) => void; onOutputCreated: (output: LocalOutput) => void; onOutputDeleted: (id: string) => void }) {
+  switch (route) {
+    case 'record':
+      return <RecordingPage onNavigate={onNavigate} token={token} recordings={recordings} onSaved={onRecordingSaved} />
+    case 'storybook':
+      return <StorybookPage onGenerateSpeech={onGenerateStory} />
+    case 'voices':
+      return <VoicesPage onNavigate={onNavigate} token={token} recordings={recordings} onDeleted={onRecordingDeleted} />
+    case 'generate':
+      return <GenerationPage onNavigate={onNavigate} token={token} recordings={recordings} initialText={generationDraft?.text} draftSource={generationDraft?.source} onOutputCreated={onOutputCreated} />
+    case 'results':
+      return <ResultsPage onNavigate={onNavigate} token={token} outputs={outputs} onOutputDeleted={onOutputDeleted} />
+    case 'settings':
+      return <SettingsPage systemInfo={systemInfo} />
+  }
+}
+
+export function App() {
+  const [activeRoute, setActiveRoute] = useState<AppRoute>('record')
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
+  const [runtimeToken, setRuntimeToken] = useState<string | null>(null)
+  const [recordings, setRecordings] = useState<LocalRecording[]>([])
+  const [outputs, setOutputs] = useState<LocalOutput[]>([])
+  const [models, setModels] = useState<LocalModel[]>([])
+  const [systemInfo, setSystemInfo] = useState<RuntimeSystem | null>(null)
+  const [generationDraft, setGenerationDraft] = useState<{ text: string; source: 'recording' | 'storybook' } | null>(null)
+
+  async function connectRuntime(code: string) {
+    setConnectionState('checking')
+    try {
+      await getRuntimeHealth()
+      const session = await pairRuntime(code)
+      const system = await getRuntimeSystem(session.access_token)
+      const savedRecordings = await listRecordings(session.access_token)
+      const savedOutputs = await listOutputs(session.access_token)
+      const installedModels = await listModels(session.access_token)
+      setRecordings(savedRecordings)
+      setOutputs(savedOutputs)
+      setModels(installedModels)
+      setSystemInfo(system)
+      setRuntimeToken(session.access_token)
+      setActiveRoute('record')
+      setConnectionState('connected')
+    } catch (error) {
+      setConnectionState(error instanceof LocalRuntimeError && error.code === 'local_access_blocked' ? 'permission-denied' : 'error')
+      throw error
+    }
+  }
+
+  function handleRecordingSaved(recording: LocalRecording) {
+    setRecordings((current) => [recording, ...current.filter((item) => item.id !== recording.id)])
+    setGenerationDraft({ text: recording.transcript, source: 'recording' })
+    setActiveRoute('generate')
+  }
+
+  function handleStoryGenerate(text: string) {
+    setGenerationDraft({ text, source: 'storybook' })
+    setActiveRoute('generate')
+  }
+
+  function handleRecordingDeleted(id: string) {
+    setRecordings((current) => current.filter((item) => item.id !== id))
+  }
+
+  function handleOutputCreated(output: LocalOutput) {
+    setOutputs((current) => [output, ...current.filter((item) => item.id !== output.id)])
+  }
+
+  function handleOutputDeleted(id: string) {
+    setOutputs((current) => current.filter((item) => item.id !== id))
+  }
+
+  function reconnectRuntime() {
+    setRuntimeToken(null)
+    setConnectionState('disconnected')
+    setRecordings([])
+    setOutputs([])
+    setModels([])
+    setSystemInfo(null)
+    setActiveRoute('record')
+  }
+
+  const baselineModel = models.find((model) => model.id === 'qwen3-tts-0.6b-base') ?? null
+  const setupComplete = runtimeToken !== null && connectionState === 'connected' && baselineModel?.status === 'installed'
+
+  if (!setupComplete) {
+    return <SetupScreen
+      connectionState={connectionState}
+      token={runtimeToken}
+      model={baselineModel}
+      onPair={connectRuntime}
+      onModelsUpdated={setModels}
+    />
+  }
+
+  return (
+    <AppShell activeRoute={activeRoute} onNavigate={setActiveRoute} connectionState={connectionState}>
+      <div className="page-stack app-page-stack">
+        <ConnectionStatus state={connectionState} onPair={connectRuntime} onReconnect={runtimeToken ? reconnectRuntime : undefined} />
+        <CurrentPage route={activeRoute} onNavigate={setActiveRoute} token={runtimeToken} recordings={recordings} outputs={outputs} systemInfo={systemInfo} generationDraft={generationDraft} onGenerateStory={handleStoryGenerate} onRecordingSaved={handleRecordingSaved} onRecordingDeleted={handleRecordingDeleted} onOutputCreated={handleOutputCreated} onOutputDeleted={handleOutputDeleted} />
+      </div>
+    </AppShell>
+  )
+}
