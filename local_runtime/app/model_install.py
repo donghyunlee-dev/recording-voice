@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 
 from .generation import MODEL_REPO, MODEL_REVISION
@@ -17,6 +18,9 @@ class ModelInstaller:
         cancel_event: threading.Event,
         on_progress: Callable[[int, int | None], None],
     ) -> str:
+        if cancel_event.is_set():
+            raise ModelInstallCancelled("download_cancelled")
+
         from huggingface_hub import snapshot_download
         from tqdm.auto import tqdm
 
