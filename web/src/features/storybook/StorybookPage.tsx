@@ -1,4 +1,4 @@
-import { Button, Card } from '@windsoft/ui'
+import { Button, Card, ProductGrid, Typography } from '@windsoft/ui'
 import { useState } from 'react'
 import { storybooks, storyScript, type Storybook } from './storybookData'
 
@@ -13,17 +13,15 @@ export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
   if (!activeStory) {
     return <div className="page-stack storybook-page">
       <div className="page-heading">
-        <span className="section-kicker">그림과 함께 듣는 동화</span>
-        <h1>동화책 미리보기</h1>
-        <p>이야기를 고르고 장면을 넘겨보세요. 준비된 짧은 대본은 저장한 목소리로 읽을 수 있습니다.</p>
+        <Typography variant="caption" className="section-kicker">그림과 함께 듣는 동화</Typography>
+        <Typography variant="h1">동화책 미리보기</Typography>
+        <Typography variant="body-sm">이야기를 고르고 장면을 넘겨보세요. 준비된 대본을 저장한 목소리로 읽을 수 있습니다.</Typography>
       </div>
-      <div className="storybook-library">
-        {storybooks.map((story) => <button className="storybook-card" type="button" key={story.id} onClick={() => { setActiveStory(story); setActiveScene(0) }}>
+      <ProductGrid className="storybook-catalog" items={storybooks} renderCard={(story) => <button className="storybook-card" type="button" key={story.id} onClick={() => { setActiveStory(story); setActiveScene(0) }}>
           <img src={story.scenes[0].image} alt={`${story.title} 삽화 미리보기`} />
           <span className="storybook-card__body"><strong>{story.title}</strong><span>{story.summary}</span><small>그림 3장 · 짧은 줄거리</small></span>
           <span className="storybook-card__arrow" aria-hidden="true">→</span>
-        </button>)}
-      </div>
+        </button>} />
     </div>
   }
 

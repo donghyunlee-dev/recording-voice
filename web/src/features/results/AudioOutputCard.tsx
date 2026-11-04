@@ -43,13 +43,13 @@ export function AudioOutputCard({ token, output, onDeleted }: AudioOutputCardPro
   return (
     <Card className="voice-take-card" title={`생성 결과 · ${new Date(output.created_at).toLocaleString('ko-KR')}`} description={`${output.duration_seconds.toFixed(1)}초 · ${output.sample_rate.toLocaleString()} Hz · 생성 ${output.generation_seconds.toFixed(1)}초`}>
       <p className="voice-take-transcript">{output.text}</p>
-      <p className="output-model-meta">Qwen3-TTS 0.6B Base · 모델 로드 {output.model_load_seconds.toFixed(1)}초 · 최대 RSS {output.peak_rss_mib.toFixed(0)} MiB</p>
       {!audioUrl ? <Button variant="primary" onClick={() => void loadAudio()}>내 PC에서 결과 재생</Button> : (
         <>
           <audio controls src={audioUrl} aria-label="생성된 음성 재생" />
           <a className="download-take" href={audioUrl} download="voice-generated.wav">WAV 다운로드</a>
         </>
       )}
+      <p className="output-model-meta">음성 모델 Qwen3-TTS 0.6B Base · 생성 {output.generation_seconds.toFixed(1)}초 · 모델 준비 {output.model_load_seconds.toFixed(1)}초</p>
       {onDeleted && <Button variant="ghost" disabled={deleting} onClick={() => void removeOutput()}>{deleting ? '삭제 중…' : '결과 삭제'}</Button>}
       {error && <p role="alert" className="recorder-error">{error}</p>}
     </Card>

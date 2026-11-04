@@ -38,7 +38,7 @@ pactl list sources short
 
 WSLg가 Windows 오디오 입력을 전달하면 목록에 `RDPSource`가 표시됩니다. Windows 개인정보 설정에서 마이크를 허용해야 하며, 조직 정책이나 오디오 드라이버가 입력 전달을 막을 수 있습니다. WSLg 마이크 경로가 없으면 같은 PC의 Windows 브라우저에서 페이지를 열거나 오디오 파일 가져오기를 사용합니다.
 
-Vercel 프로젝트는 Root Directory를 `web`로 지정하면 정적 Vite 빌드만 배포합니다. Windows 브라우저에서 배포 URL을 사용할 때는 WSL 런타임 허용 목록에 해당 사이트의 정확한 origin을 넣어 실행합니다.
+Vercel 프로젝트는 Root Directory를 `web`로 지정하면 정적 Vite 빌드만 배포합니다. Windows 사용자는 설치 프로그램을 사용합니다. 아래 Linux 런타임 명령은 개발자가 배포 UI와 Linux backend를 점검할 때만 사용합니다.
 
 ```bash
 LOCAL_VOICE_ALLOWED_ORIGINS=https://your-site.vercel.app ./scripts/start-local-runtime-linux.sh
@@ -46,21 +46,13 @@ LOCAL_VOICE_ALLOWED_ORIGINS=https://your-site.vercel.app ./scripts/start-local-r
 
 Preview origin을 사용할 때도 해당 Preview URL을 정확히 허용 목록에 지정해야 합니다. Origin 전체 허용이나 wildcard는 지원하지 않습니다.
 
-## Windows PC에서 WSL2로 실행
+## Windows 설치 프로그램
 
-먼저 Windows 기능에서 WSL2와 Ubuntu를 설치하고 Ubuntu를 한 번 실행해 사용자 계정을 만듭니다. 설치 스크립트는 WSL 배포판을 자동 설치하거나 관리자 권한을 요청하지 않습니다. 저장소를 Windows에 내려받은 뒤 PowerShell에서 아래 명령을 실행하면 Linux 의존성을 준비합니다.
+일반 사용자는 웹 화면에서 `VoiceStudioSetup.exe`를 내려받아 설치 마법사를 실행합니다. 설치 파일을 연 뒤 웹 화면에서 **설치했어요, PC 앱 찾기**를 누르면 로컬 백엔드를 자동 감지하고 연결합니다. 모델은 라이선스 동의와 다운로드 진행률을 표시하는 웹 설정 단계에서 받으며, 준비가 끝나야 녹음 화면에 들어갑니다.
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-./scripts/windows/install-local-voice.ps1
-./scripts/windows/start-local-voice.ps1 -AllowedOrigin "https://your-site.vercel.app"
-```
+설치는 WSL, Docker, Java 또는 관리자 권한을 요구하지 않습니다. Python과 CPU용 음성 처리 라이브러리는 최초 설치 때 내려받고, 모델 가중치는 별도로 약 2.52 GB를 받습니다. 앱과 모델 설치 파일은 별개로 업데이트됩니다. Windows 설치 프로그램 빌드 방법은 [installer/windows/README.md](installer/windows/README.md)를 참고하세요.
 
-Vercel 배포 전 로컬 웹을 개발할 때는 기본 허용 출처인 `http://localhost:5173`으로 시작할 수 있습니다. Vercel을 쓸 때는 `AllowedOrigin`에 실제 배포 origin 하나를 정확히 지정합니다. Preview와 Production 도메인이 다르면 각 도메인을 사용할 때 해당 주소로 런타임을 다시 시작합니다.
-
-PowerShell 창은 로컬 런타임이 실행되는 동안 열어 둡니다. 표시된 1회성 코드를 브라우저의 **로컬 앱 연결**에 입력합니다. 브라우저가 로컬 네트워크/Loopback 접근을 물으면 허용합니다. 설치 중 Python, PyTorch CPU, Qwen 라이브러리가 WSL에 설치되고, 모델 가중치는 브라우저의 **음성 생성** 화면에서 사용자가 설치를 확인한 뒤 로컬 Hugging Face 캐시로 내려받습니다.
-
-Windows 경로에 있는 저장소로도 시작할 수 있지만, 더 나은 파일 처리 속도를 위해 저장소와 `.venv`를 WSL Ubuntu의 Linux 홈 디렉터리에 두고 PowerShell 스크립트에 `-WslProjectPath "/home/<사용자>/<저장소>"`를 지정하는 구성을 권장합니다. WSL 메모리 한도는 Windows 전체 RAM과 다를 수 있으므로 화면의 자원 표시는 모델을 실제 실행하는 WSL 기준입니다.
+이 저장소의 Linux 개발 흐름은 개발·검증용으로 유지됩니다. Windows 사용자용 설치 흐름과 Linux 개발 환경은 서로 다른 실행 경로입니다.
 
 ## 내 음성 녹음 및 생성
 
@@ -76,8 +68,7 @@ Windows 경로에 있는 저장소로도 시작할 수 있지만, 더 나은 파
 
 ## 로컬 데이터 및 실행 경계
 
-- 음성, 대본, 생성 결과, 작업 상태는 기본 `~/.local/share/voice-studio` 아래에 저장합니다.
-- 모델은 Hugging Face 로컬 캐시에 보관합니다.
+- Windows 설치에서는 음성, 대본, 생성 결과와 모델을 `%LOCALAPPDATA%\VoiceStudio` 아래에 저장합니다. Linux 개발 실행에서는 기본 `~/.local/share/voice-studio`와 Hugging Face 캐시를 사용합니다.
 - 브라우저와 로컬 런타임은 `127.0.0.1`로 통신합니다. 마이크 음성이나 생성 입력을 Vercel 또는 외부 추론 API로 보내지 않습니다.
 - 공개 모델을 처음 설치할 때만 모델 저장소에서 파일을 받습니다.
 - `logs/`, `inputs/`, `outputs/`, 개인 WAV와 모델 체크포인트는 Git 대상에서 제외합니다.
@@ -89,4 +80,5 @@ Windows 경로에 있는 저장소로도 시작할 수 있지만, 더 나은 파
 - 제품 설계: [docs/product/LOCAL_VOICE_STUDIO_DESIGN.md](docs/product/LOCAL_VOICE_STUDIO_DESIGN.md)
 - 기존 PoC 기준 및 원래 검증 조건: [docs/product/PRD_LOCAL_VOICE_BOOK_POC.md](docs/product/PRD_LOCAL_VOICE_BOOK_POC.md)
 - 단계별 계획: [docs/superpowers/plans/2026-11-03-local-voice-studio.md](docs/superpowers/plans/2026-11-03-local-voice-studio.md)
+- 개발 완료 절차: [docs/development/DEVELOPMENT_COMPLETE.md](docs/development/DEVELOPMENT_COMPLETE.md)
 - 실행·테스트 기록: [RUN_LOG.md](RUN_LOG.md)

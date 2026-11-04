@@ -17,6 +17,20 @@ describe('local runtime client', () => {
     }))
   })
 
+  it('requests installer-mode pairing only after the browser connection action', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ access_token: 'token', expires_in: 43200, token_type: 'Bearer' }) })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await pairRuntime()
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('http://127.0.0.1:8765/api/v1/pair')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({}))
+    expect(new Headers(init.headers).get('X-Local-Request')).toBe('1')
+    expect(init.targetAddressSpace).toBe('loopback')
+  })
+
   it('protects system requests with the paired token and custom header', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ os: 'Linux' }) })
     vi.stubGlobal('fetch', fetchMock)

@@ -4,6 +4,14 @@ from local_runtime.app.security import PairingManager
 
 
 class PairingManagerTests(unittest.TestCase):
+    def test_creates_a_random_session_without_exposing_a_pairing_code(self):
+        manager = PairingManager("unused-code")
+
+        session = manager.create_session()
+
+        self.assertIsNotNone(session)
+        self.assertTrue(manager.is_authorized(session.token))
+
     def test_pairing_code_is_one_time_and_session_expires(self):
         manager = PairingManager("one-time-code", session_ttl_seconds=0)
         session = manager.exchange("one-time-code")

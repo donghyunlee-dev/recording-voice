@@ -138,7 +138,7 @@ function runtimeMessage(code?: RuntimeErrorCode): string {
     case 'local_job_running': return '현재 로컬 작업이 끝난 뒤 다시 시도해 주세요.'
     case 'unsupported_model': return '지원하지 않는 모델입니다.'
     case 'disk_space_insufficient': return '모델을 내려받을 디스크 공간이 부족합니다. 모델 캐시에 최소 8 GiB를 확보해 주세요.'
-    case 'memory_insufficient': return '현재 사용 가능한 메모리가 부족합니다. 다른 프로그램을 종료하거나 WSL 메모리 설정을 확인해 주세요.'
+    case 'memory_insufficient': return '현재 사용 가능한 메모리가 부족합니다. 다른 프로그램을 종료한 뒤 다시 시도해 주세요.'
     default: return 'PC에서 로컬 앱이 실행 중인지 확인해 주세요.'
   }
 }
@@ -147,8 +147,12 @@ export async function getRuntimeHealth(): Promise<RuntimeHealth> {
   return request<RuntimeHealth>('/health')
 }
 
-export async function pairRuntime(code: string): Promise<RuntimeSession> {
-  return request<RuntimeSession>('/pair', { method: 'POST', body: JSON.stringify({ code }) })
+export async function pairRuntime(code?: string): Promise<RuntimeSession> {
+  return request<RuntimeSession>('/pair', {
+    method: 'POST',
+    body: JSON.stringify(code ? { code } : {}),
+    headers: code ? undefined : { 'X-Local-Request': '1' },
+  })
 }
 
 export async function getRuntimeSystem(token: string): Promise<RuntimeSystem> {

@@ -1,6 +1,6 @@
 # 로컬 음성 녹음 스튜디오 — 제품·기술 설계
 
-> 상태: 한국어 정적 UI와 로컬 런타임 프로토타입 구현 완료. WSLg 마이크 장치 연결은 Linux Chromium에서 확인했으며, 사용자 음성 샘플/모델 출력 및 Vercel Preview 검증은 진행 중
+> 상태: 이 문서는 2026-11-03 WSL 기반 설계의 기록이다. Windows 사용자 설치 흐름은 [Windows 네이티브 설치기 설계](../superpowers/specs/2026-11-04-windows-native-installer-design.md)를 따른다. 아래 WSL 설치·메모리 지침은 Windows 사용자 설치에 적용하지 않는다.
 > 작성일: 2026-11-03
 > 기준 문서: [기존 로컬 음성 PoC PRD](./PRD_LOCAL_VOICE_BOOK_POC.md)
 > 구현 계획: [단계별 구현 계획](../superpowers/plans/2026-11-03-local-voice-studio.md)

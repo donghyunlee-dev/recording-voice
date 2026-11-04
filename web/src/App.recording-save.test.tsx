@@ -17,8 +17,9 @@ describe('recording save handoff', () => {
     vi.stubGlobal('fetch', readyRuntimeFetch())
     render(<App />)
 
-    await user.type(screen.getByLabelText('터미널 페어링 코드'), 'terminal-code')
-    await user.click(screen.getByRole('button', { name: '코드 확인 후 연결' }))
+    await user.click(screen.getByRole('button', { name: '설치하기' }))
+    await user.click(screen.getByRole('button', { name: '설치했어요, PC 앱 찾기' }))
+    await user.click(await screen.findByRole('button', { name: '이 PC에 연결' }))
     await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
     await user.click(screen.getByRole('button', { name: '테스트 녹음 저장' }))
 
@@ -31,6 +32,7 @@ describe('recording save handoff', () => {
 function readyRuntimeFetch() {
   const model = { id: 'qwen3-tts-0.6b-base', repository: 'Qwen/Qwen3-TTS-12Hz-0.6B-Base', revision: 'fixed-revision', status: 'installed', language: 'Korean', license: 'Apache-2.0', download_size_bytes: 2_520_000_000, disk_free_gib: 20, memory_available_gib: 5.8, memory_recommended_free_gib: 5.7 }
   return vi.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1' }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1' }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'memory-token', expires_in: 43200, token_type: 'Bearer' }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ os: 'Linux', architecture: 'x86_64', cpu_logical_count: 12, memory_total_gib: 7.5, memory_available_gib: 5.8, model_cache_disk_free_gib: 20 }) })

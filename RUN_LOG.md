@@ -130,3 +130,11 @@
 - 이 임시 PulseAudio client 경로를 상속한 Linux Chromium에서 `getUserMedia({audio:true})` 성공. 브라우저는 `Default`와 `RDP Source` 입력 장치를 표시했고, 실제 track은 48 kHz mono였음. 측정 RMS 0.0056은 조용한 시점의 관측값이며 사용자가 발화한 음성 콘텐츠로 취급하지 않음.
 - 마이크가 열린 상태인 headful Linux Chromium은 현재 `녹음 스튜디오` 페이지에 남겨 둠. 사용자의 실제 발화, take 저장/재생, 그 take를 이용한 모델 생성은 아직 수행되지 않음. 영구 패키지 설치나 system config 변경은 하지 않았음.
 - 후속 상태 점검: `~/.local/share/voice-studio`에는 새 recording/job/output 파일이 없고, Vite 및 API 프로세스는 살아 있음. 모델은 고정 revision `5d83992436eae1d760afd27aff78a71d676296fc`으로 설치됨. 페어링 API의 system 응답은 Linux x86_64, 12 논리 CPU, RAM 7.62 GiB / 가용 6.37 GiB / 모델 캐시 디스크 여유 927.5 GiB. 사용자 녹음이 저장되면 다음 단계 생성 preflight의 5.7 GiB 권고를 통과할 관측값임.
+
+## 2026-11-04 — WindSoft 화면 정리 및 배포 완료 게이트
+
+- WindSoft Design System MCP에서 semantic 토큰과 `WizardForm`, `ProductGrid`, `SettingsPage` 템플릿을 확인하고 설치 안내, 동화 선택, 설정 화면에 적용. 앱 화면의 색상, 글자 역할, 테두리 반경, 카드 그림자를 WindSoft semantic 토큰에 연결.
+- Windows 10/11 사용자가 HTTPS 배포 화면에서 프로젝트 ZIP과 안내를 받고, PowerShell 설치 및 현재 페이지 origin에 허용된 로컬 런타임을 실행하는 절차를 추가. 개발 완료 판정은 실제 Windows PC의 연결, 물리 마이크 녹음, 저장 후 재조회·재생과 로컬 전송 경계 검토까지 요구하도록 `docs/development/DEVELOPMENT_COMPLETE.md`에 기록.
+- 웹 검증: `npm test -- --run --maxWorkers=1 --testTimeout=20000` 통과 (7 files, 22 tests). `npm run build` 통과. `git diff --check` 통과. WindSoft 템플릿 화면의 데스크톱/모바일 렌더 확인 및 모바일 가로 넘침 없음.
+- 배포: Vercel `recording-voice-web`, deployment `dpl_Gnsq59APdayLPvSRSFbJoHoGzjiC`, URL `https://recording-voice-web.vercel.app`, 상태 Ready, target Production. 공유 링크를 발급해 `curl`에서 HTTP 200 및 앱 HTML 응답 확인; 링크 만료 2026-11-11. 보호 설정은 유지.
+- 배포 상태 유의: Preview를 의도했으나 CLI 결과는 Production target이었음. 이 프로젝트의 첫 배포이며, Preview 검증이나 Production 승격을 완료한 것으로 기록하지 않음. 배포는 `d9f8567317970cc8b90aa8532104586924ddd27f` 기반의 dirty 작업 트리에서 생성되어 commit 고정이 아니며, 화면의 GitHub `master` ZIP과 전체 소스 정합성은 미확인. Windows 수동 설치/녹음 acceptance는 아직 미완료.

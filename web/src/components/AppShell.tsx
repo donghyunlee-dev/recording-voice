@@ -14,7 +14,7 @@ interface AppShellProps {
 const primaryLinks: { route: AppRoute; label: string; icon: string }[] = [
   { route: 'record', label: '녹음 스튜디오', icon: '◉' },
   { route: 'storybook', label: '동화책', icon: '▧' },
-  { route: 'voices', label: '내 음성', icon: '◌' },
+  { route: 'voices', label: '저장한 녹음', icon: '◌' },
   { route: 'generate', label: '음성 생성', icon: '◖' },
   { route: 'results', label: '생성 결과', icon: '▤' },
 ]

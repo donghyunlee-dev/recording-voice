@@ -99,6 +99,7 @@ class LocalApiSecurityTests(unittest.TestCase):
         self.assertEqual(self.request("POST", "/pair", origin="https://attacker.example", payload={"code": "test-pair-code-123"})[0], 403)
         self.assertEqual(self.request("POST", "/pair", payload={"code": "00000000"})[0], 401)
         self.assertEqual(self.request("POST", "/pair", payload={"code": "test-pair-code-123"})[0], 401)
+        self.assertEqual(self.request("POST", "/pair", payload={})[0], 401)
 
     def test_system_requires_bearer_and_custom_header(self):
         status, _, _ = self.request("GET", "/system")
@@ -150,6 +151,72 @@ class LocalApiSecurityTests(unittest.TestCase):
         headers = {"Authorization": f"Bearer {self.token}", "X-Local-Request": "1"}
         self.assertEqual(self.request("POST", "/models/unknown/install", headers=headers, payload={"accept_license": True})[0], 404)
         self.assertEqual(self.request("POST", "/models/qwen3-tts-0.6b-base/install", headers=headers, payload={"accept_license": False})[0], 400)
+
+
+class InstallerAutoPairingApiTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.data_dir = tempfile.TemporaryDirectory()
+        with socket.socket() as server:
+            server.bind(("127.0.0.1", 0))
+            cls.port = server.getsockname()[1]
+        env = os.environ.copy()
+        env.update({
+            "LOCAL_VOICE_PORT": str(cls.port),
+            "LOCAL_VOICE_ALLOWED_ORIGINS": "https://studio.example.test",
+            "LOCAL_VOICE_AUTO_PAIR": "1",
+            "LOCAL_VOICE_DATA_DIR": cls.data_dir.name,
+        })
+        cls.process = subprocess.Popen(
+            [sys.executable, "-m", "local_runtime.app"], cwd=ROOT.parent, env=env,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+        )
+        cls.base = f"http://127.0.0.1:{cls.port}/api/v1"
+        for _ in range(600):
+            try:
+                cls.request("GET", "/health")
+                break
+            except (OSError, urllib.error.URLError):
+                if cls.process.poll() is not None:
+                    stderr = cls.process.communicate()[1].decode("utf-8", errors="replace")
+                    raise RuntimeError(f"installer-mode API exited before startup:\n{stderr}")
+                time.sleep(0.05)
+        else:
+            cls.process.terminate()
+            raise RuntimeError("installer-mode API did not start within 30 seconds")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.process.terminate()
+        cls.process.wait(timeout=5)
+        if cls.process.stderr:
+            cls.process.stderr.close()
+        cls.data_dir.cleanup()
+
+    @classmethod
+    def request(cls, method, path, *, origin="https://studio.example.test", payload=None, extra_headers=None):
+        data = None if payload is None else json.dumps(payload).encode()
+        headers = {"Content-Type": "application/json"} if data is not None else {}
+        if origin is not None:
+            headers["Origin"] = origin
+        headers.update(extra_headers or {})
+        request = urllib.request.Request(cls.base + path, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return response.status, response.read()
+        except urllib.error.HTTPError as error:
+            return error.code, error.read()
+
+    def test_auto_pair_requires_an_allowed_browser_origin(self):
+        self.assertEqual(self.request("POST", "/pair", origin=None, payload={})[0], 403)
+        self.assertEqual(self.request("POST", "/pair", origin="https://attacker.example", payload={})[0], 403)
+
+    def test_auto_pair_creates_session_for_allowed_origin_without_terminal_code(self):
+        self.assertEqual(self.request("POST", "/pair", payload={})[0], 403)
+        status, body = self.request("POST", "/pair", payload={}, extra_headers={"X-Local-Request": "1"})
+
+        self.assertEqual(status, 200)
+        self.assertTrue(json.loads(body)["access_token"])
 
 
 if __name__ == "__main__":

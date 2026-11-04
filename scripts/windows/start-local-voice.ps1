@@ -1,39 +1,49 @@
 param(
-    [string]$Distro = "Ubuntu",
-    [string]$WslProjectPath,
-    [string]$AllowedOrigin = "http://localhost:5173"
+    [Parameter(Mandatory = $true)]
+    [string]$InstallRoot,
+    [string]$AllowedOrigin = "https://recording-voice-web.vercel.app"
 )
 
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
-if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
-    throw "WSL is not available. Install and launch an Ubuntu WSL2 distribution first."
-}
+$AppData = Join-Path $env:LOCALAPPDATA "VoiceStudio"
+$DataDir = Join-Path $AppData "data"
+$ModelCache = Join-Path $AppData "models\huggingface"
+$LogsDir = Join-Path $AppData "logs"
+$StdoutLog = Join-Path $LogsDir "backend-out.log"
+$StderrLog = Join-Path $LogsDir "backend-error.log"
+$Python = Join-Path $InstallRoot ".venv\Scripts\python.exe"
 
-$OriginUri = $null
-if (-not [Uri]::TryCreate($AllowedOrigin, [UriKind]::Absolute, [ref]$OriginUri) -or
-    $OriginUri.Scheme -notin @("http", "https") -or
-    $OriginUri.AbsolutePath -ne "/" -or $OriginUri.Query -or $OriginUri.Fragment -or
-    $AllowedOrigin -eq "*") {
-    throw "AllowedOrigin must be one exact http(s) origin, for example https://your-site.vercel.app."
-}
-
-if ([string]::IsNullOrWhiteSpace($WslProjectPath)) {
-    $WindowsProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
-    $WslPathOutput = & wsl.exe -d $Distro --exec wslpath -a $WindowsProjectPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Could not find WSL distribution '$Distro' or translate the project path."
+if (-not (Test-Path $Python)) { throw "Voice Studio is not installed. Run the Windows installer first." }
+New-Item -ItemType Directory -Force -Path $DataDir, $ModelCache, $LogsDir | Out-Null
+foreach ($log in @($StdoutLog, $StderrLog)) {
+    if ((Test-Path $log) -and (Get-Item $log).Length -gt 5MB) {
+        Move-Item -Force $log "$log.1"
     }
-    $WslProjectPath = ($WslPathOutput | Out-String).Trim()
 }
 
-if (-not $WslProjectPath.StartsWith("/")) {
-    throw "WslProjectPath must be an absolute Linux path such as /home/user/recording-voice."
-}
+$env:LOCAL_VOICE_DATA_DIR = $DataDir
+$env:HF_HOME = $ModelCache
+$env:LOCAL_VOICE_ALLOWED_ORIGINS = $AllowedOrigin
+$env:LOCAL_VOICE_AUTO_PAIR = "1"
+$env:LOCAL_VOICE_PORT = "8765"
 
-Write-Host "Starting the local runtime on 127.0.0.1:8765. Keep this window open."
-Write-Host "Allowed web origin: $AllowedOrigin"
-& wsl.exe -d $Distro --exec env "LOCAL_VOICE_ALLOWED_ORIGINS=$AllowedOrigin" bash -lc 'cd -- "$1" && test -f scripts/start-local-runtime-linux.sh && ./scripts/start-local-runtime-linux.sh' voice-studio $WslProjectPath
-if ($LASTEXITCODE -ne 0) {
-    throw "The local runtime exited with code $LASTEXITCODE. Review the WSL output above."
+try {
+    $health = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/health" -TimeoutSec 2
+    if ($health.status -eq "ok") { exit 0 }
+} catch { }
+
+$process = Start-Process -FilePath $Python -ArgumentList @("-m", "local_runtime.app") `
+    -WorkingDirectory $InstallRoot -WindowStyle Hidden -PassThru `
+    -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog
+Set-Content -Path (Join-Path $AppData "backend.pid") -Value $process.Id -Encoding ascii
+for ($attempt = 0; $attempt -lt 30; $attempt++) {
+    Start-Sleep -Seconds 1
+    if ($process.HasExited) { throw "The local backend stopped during startup. Check $StderrLog." }
+    try {
+        $health = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/health" -TimeoutSec 2
+        if ($health.status -eq "ok") { exit 0 }
+    } catch { }
 }
+throw "The local backend did not become ready. Check $StderrLog."

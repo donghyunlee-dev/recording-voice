@@ -20,12 +20,13 @@ from .generation import MODEL_ID, MODEL_REPO, MODEL_REVISION, ModelNotInstalled,
 from .jobs import JobStore
 from .model_install import ModelInstallCancelled, ModelInstaller
 from .security import PairingManager
-from .system_info import memory_available_gib
+from .paths import default_data_dir
+from .system_info import memory_available_gib, memory_total_gib
 from .storage import LocalOutputStore, LocalRecordingStore, RecordingError
 
 
 class PairRequest(BaseModel):
-    code: str = Field(min_length=8, max_length=64)
+    code: str | None = Field(default=None, min_length=8, max_length=64)
 
 
 class GenerationRequest(BaseModel):
@@ -36,15 +37,6 @@ class GenerationRequest(BaseModel):
 
 class InstallModelRequest(BaseModel):
     accept_license: bool
-
-
-def _memory_gib(key: str) -> float | None:
-    try:
-        pages = os.sysconf(key)
-        page_size = os.sysconf("SC_PAGE_SIZE")
-        return round(pages * page_size / (1024**3), 2)
-    except (ValueError, OSError, TypeError):
-        return None
 
 
 def _model_cache_dir() -> Path:
@@ -62,8 +54,9 @@ def create_app() -> FastAPI:
         if origin.strip()
     )
     pairing_code = os.environ.get("LOCAL_VOICE_PAIRING_CODE") or secrets.token_urlsafe(9)
+    auto_pair_enabled = os.environ.get("LOCAL_VOICE_AUTO_PAIR") == "1"
     pairing = PairingManager(pairing_code)
-    data_dir = Path(os.environ.get("LOCAL_VOICE_DATA_DIR", Path.home() / ".local/share/voice-studio"))
+    data_dir = Path(os.environ.get("LOCAL_VOICE_DATA_DIR") or default_data_dir())
     recordings = LocalRecordingStore(data_dir)
     outputs = LocalOutputStore(data_dir)
     jobs = JobStore(data_dir)
@@ -75,7 +68,7 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         jobs.recover_interrupted()
-        if not os.environ.get("LOCAL_VOICE_PAIRING_CODE"):
+        if not os.environ.get("LOCAL_VOICE_PAIRING_CODE") and not auto_pair_enabled:
             print(f"Voice Studio one-time pairing code: {pairing_code}", file=sys.stderr, flush=True)
         yield
         executor.shutdown(wait=False, cancel_futures=True)
@@ -113,12 +106,23 @@ def create_app() -> FastAPI:
         return {"status": "ok", "version": app.version, "api_version": "v1"}
 
     @app.post("/api/v1/pair")
-    async def pair(payload: PairRequest):
-        session = pairing.exchange(payload.code)
+    async def pair(payload: PairRequest, request: Request, x_local_request: str | None = Header(default=None)):
+        if payload.code:
+            session = pairing.exchange(payload.code)
+        elif auto_pair_enabled:
+            origin = request.headers.get("origin")
+            if not origin or origin.rstrip("/") not in allowed_origins:
+                raise HTTPException(status_code=403, detail={"code": "origin_not_allowed"})
+            if x_local_request != "1":
+                raise HTTPException(status_code=403, detail={"code": "local_request_header_required"})
+            session = pairing.create_session()
+        else:
+            session = None
         if session is None:
             raise HTTPException(status_code=401, detail={"code": "invalid_or_expired_pairing_code"})
-        next_code = pairing.rotate_code()
-        print(f"Voice Studio next one-time pairing code: {next_code}", file=sys.stderr, flush=True)
+        if not auto_pair_enabled:
+            next_code = pairing.rotate_code()
+            print(f"Voice Studio next one-time pairing code: {next_code}", file=sys.stderr, flush=True)
         return {"access_token": session.token, "expires_in": 43_200, "token_type": "Bearer"}
 
     @app.get("/api/v1/system")
@@ -128,7 +132,7 @@ def create_app() -> FastAPI:
             "os": platform.system(),
             "architecture": platform.machine(),
             "cpu_logical_count": os.cpu_count(),
-            "memory_total_gib": _memory_gib("SC_PHYS_PAGES"),
+            "memory_total_gib": memory_total_gib(),
             "memory_available_gib": memory_available_gib(),
             "model_cache_disk_free_gib": round(shutil.disk_usage(_model_cache_dir() if _model_cache_dir().exists() else _model_cache_dir().parent).free / (1024**3), 2),
         }

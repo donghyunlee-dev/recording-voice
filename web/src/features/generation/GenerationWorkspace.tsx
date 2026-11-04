@@ -91,7 +91,7 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
     <div className="generation-workspace">
       <Card title="생성 설정" description="저장한 녹음 한 개와 한국어 문장을 골라 내 PC의 CPU 모델로 생성합니다.">
         <div className="generation-form">
-          <FormField label="참조 녹음" hint="한 번에 녹음 take 한 개를 사용합니다. 다른 take를 골라 결과를 비교할 수 있어요.">
+          <FormField label="읽을 목소리" hint="저장한 녹음 하나를 골라 목소리를 정합니다. 다른 녹음으로도 결과를 비교할 수 있어요.">
             <select className="generation-select" value={recordingId} onChange={(event) => setRecordingId(event.target.value)}>
               {recordings.length === 0 && <option value="">먼저 목소리를 녹음하고 저장해 주세요</option>}
               {recordings.map((recording) => <option key={recording.id} value={recording.id}>{new Date(recording.created_at).toLocaleString('ko-KR')} · {recording.duration_seconds.toFixed(1)}초 · {recording.transcript.slice(0, 34)}</option>)}

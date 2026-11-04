@@ -6,16 +6,32 @@ import { App } from './App'
 describe('App first-run flow', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows only setup guidance until the PC runtime and voice model are ready', () => {
+  it('shows only the PC app install action before setup begins', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: '녹음 전에 PC를 준비해요' })).toBeVisible()
-    expect(screen.getByText('동화로 완성')).toBeVisible()
-    expect(screen.getByText('그림·대본·엄마 목소리')).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'PC 로컬 앱을 켜고 연결해요' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'PC 앱을 설치해요' })).toBeVisible()
+    expect(screen.getByText(/Windows 10\/11 PC에서/)).toBeVisible()
+    expect(screen.getByRole('button', { name: '설치하기' })).toBeVisible()
+    expect(screen.queryByText('./scripts/install-linux.sh')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '이 PC에 모델 설치' })).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '녹음 스튜디오' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Windows + WSL2 설치 가이드' })).toHaveAttribute('href', '/install/windows-wsl.md')
+  })
+
+  it('offers a Windows installer and detects its backend before connecting', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', stubReadyRuntime('installed'))
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: '설치하기' }))
+    expect(screen.getByRole('link', { name: 'Windows 설치 프로그램 다운로드' })).toHaveAttribute('href', '/install/windows/VoiceStudioSetup.exe')
+    expect(screen.getByRole('link', { name: 'Windows 설치 안내' })).toHaveAttribute('href', '/install/windows-wsl.md')
+    expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '설치했어요, PC 앱 찾기' }))
+    expect(await screen.findByRole('button', { name: '이 PC에 연결' })).toBeEnabled()
+    expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
   })
 
   it('opens the recording studio as soon as pairing finds the installed model', async () => {
@@ -24,14 +40,14 @@ describe('App first-run flow', () => {
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    await user.type(screen.getByLabelText('터미널 페어링 코드'), 'terminal-code')
-    await user.click(screen.getByRole('button', { name: '코드 확인 후 연결' }))
+    await connectToRuntime(user)
 
     expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
+    expect(screen.getByRole('link', { name: '저장한 녹음' })).toBeVisible()
     expect(screen.getByRole('button', { name: '마이크 연결 및 확인' })).toBeVisible()
-    expect(fetchMock).toHaveBeenCalledTimes(6)
-    expect(new Headers(fetchMock.mock.calls[2][1].headers).get('Authorization')).toBe('Bearer memory-token')
+    expect(fetchMock).toHaveBeenCalledTimes(7)
+    expect(new Headers(fetchMock.mock.calls[3][1].headers).get('Authorization')).toBe('Bearer memory-token')
   })
 
   it('keeps navigation and recording hidden when the local model still needs setup', async () => {
@@ -39,8 +55,7 @@ describe('App first-run flow', () => {
     vi.stubGlobal('fetch', stubReadyRuntime('not_installed'))
     render(<App />)
 
-    await user.type(screen.getByLabelText('터미널 페어링 코드'), 'terminal-code')
-    await user.click(screen.getByRole('button', { name: '코드 확인 후 연결' }))
+    await connectToRuntime(user)
 
     expect(await screen.findByRole('heading', { name: 'Qwen 음성 모델을 준비해요' })).toBeVisible()
     expect(screen.getByRole('button', { name: '이 PC에 모델 설치' })).toBeDisabled()
@@ -53,14 +68,12 @@ describe('App first-run flow', () => {
     vi.stubGlobal('fetch', stubReadyRuntime('installed'))
     render(<App />)
 
-    await user.type(screen.getByLabelText('터미널 페어링 코드'), 'terminal-code')
-    await user.click(screen.getByRole('button', { name: '코드 확인 후 연결' }))
+    await connectToRuntime(user)
     await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
     await user.click(screen.getByRole('link', { name: '설정 및 설치' }))
 
-    expect(screen.getByRole('link', { name: 'Windows + WSL2 설치 가이드' })).toHaveAttribute('href', '/install/windows-wsl.md')
-    expect(screen.getByRole('link', { name: 'PowerShell 설치 스크립트' })).toHaveAttribute('href', '/install/windows/install-local-voice.ps1')
-    expect(screen.getByRole('link', { name: 'PowerShell 실행 스크립트' })).toHaveAttribute('href', '/install/windows/start-local-voice.ps1')
+    expect(screen.getByRole('link', { name: 'Windows 설치 프로그램 다운로드' })).toHaveAttribute('href', '/install/windows/VoiceStudioSetup.exe')
+    expect(screen.getByRole('link', { name: 'Windows 설치 안내' })).toHaveAttribute('href', '/install/windows-wsl.md')
   })
 
   it('guides a saved voice take to the text-to-speech screen', async () => {
@@ -71,8 +84,7 @@ describe('App first-run flow', () => {
     }]))
     render(<App />)
 
-    await user.type(screen.getByLabelText('터미널 페어링 코드'), 'terminal-code')
-    await user.click(screen.getByRole('button', { name: '코드 확인 후 연결' }))
+    await connectToRuntime(user)
     await screen.findByRole('button', { name: '동화 문장 읽어보기' })
     await user.click(screen.getByRole('button', { name: '동화 문장 읽어보기' }))
 
@@ -85,8 +97,7 @@ describe('App first-run flow', () => {
     vi.stubGlobal('fetch', stubReadyRuntime('installed'))
     render(<App />)
 
-    await user.type(screen.getByLabelText('터미널 페어링 코드'), 'terminal-code')
-    await user.click(screen.getByRole('button', { name: '코드 확인 후 연결' }))
+    await connectToRuntime(user)
     await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
     await user.click(screen.getByRole('link', { name: '동화책' }))
     await user.click(screen.getByRole('button', { name: /빨간 모자/ }))
@@ -102,6 +113,7 @@ describe('App first-run flow', () => {
 function stubReadyRuntime(modelStatus: 'installed' | 'not_installed', recordings: unknown[] = []) {
   return vi.fn()
     .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1' }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1' }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'memory-token', expires_in: 43200, token_type: 'Bearer' }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ os: 'Linux', architecture: 'x86_64', cpu_logical_count: 12, memory_total_gib: 7.5, memory_available_gib: 5.8, model_cache_disk_free_gib: 20 }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ items: recordings }) })
@@ -116,4 +128,10 @@ function stubReadyRuntime(modelStatus: 'installed' | 'not_installed', recordings
       status: modelStatus, language: 'Korean', license: 'Apache-2.0', download_size_bytes: 2_520_000_000,
       disk_free_gib: 20, memory_available_gib: 5.8, memory_recommended_free_gib: 5.7,
     }] }) })
+}
+
+async function connectToRuntime(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: '설치하기' }))
+  await user.click(screen.getByRole('button', { name: '설치했어요, PC 앱 찾기' }))
+  await user.click(await screen.findByRole('button', { name: '이 PC에 연결' }))
 }

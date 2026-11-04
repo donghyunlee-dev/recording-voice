@@ -1,4 +1,4 @@
-import { Button, Card } from '@windsoft/ui'
+import { Button, Card, SettingsPage as WindsoftSettingsPage, Typography } from '@windsoft/ui'
 import { useEffect, useState } from 'react'
 import { AppShell, type AppRoute } from './components/AppShell'
 import { ConnectionStatus, type ConnectionState } from './components/ConnectionStatus'
@@ -12,9 +12,9 @@ import { StorybookPage } from './features/storybook/StorybookPage'
 function PageHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return (
     <div className="page-heading">
-      <span className="section-kicker">{eyebrow}</span>
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <Typography variant="caption" className="section-kicker">{eyebrow}</Typography>
+      <Typography variant="h1">{title}</Typography>
+      <Typography variant="body-sm">{description}</Typography>
     </div>
   )
 }
@@ -49,7 +49,7 @@ function RecordingPage({ onNavigate, token, recordings, onSaved }: { onNavigate:
 function VoicesPage({ onNavigate, token, recordings, onDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onDeleted: (id: string) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="MY VOICES" title="내 음성" description="녹음 take를 보이스 프로필로 정리하고, 사용할 목소리를 직접 선택합니다." />
+      <PageHeading eyebrow="저장한 녹음" title="저장한 녹음" description="녹음과 함께 저장한 대본을 다시 듣고, 음성 생성에 사용할 녹음을 확인합니다." />
       {!token || recordings.length === 0 ? (
         <Card className="empty-card"><div className="empty-state">
           <span className="empty-state__icon" aria-hidden="true">◌</span>
@@ -85,9 +85,9 @@ function VoiceTake({ recording, token, onDeleted }: { recording: LocalRecording;
   }
 
   return (
-    <Card className="voice-take-card" title={`녹음 take · ${new Date(recording.created_at).toLocaleString('ko-KR')}`} description={`${recording.duration_seconds.toFixed(1)}초 · ${recording.sample_rate.toLocaleString()} Hz`}>
+    <Card className="voice-take-card" title={`저장한 녹음 · ${new Date(recording.created_at).toLocaleString('ko-KR')}`} description={`${recording.duration_seconds.toFixed(1)}초 녹음`}>
       <p className="voice-take-transcript">{recording.transcript}</p>
-      {!audioUrl ? <Button variant="secondary" onClick={() => void loadAudio()}>로컬 녹음 불러오기</Button> : <audio controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
+      {!audioUrl ? <Button variant="primary" onClick={() => void loadAudio()}>녹음 듣기</Button> : <audio controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
       <Button variant="ghost" onClick={() => void remove()}>삭제</Button>
       {error && <p role="alert" className="recorder-error">{error}</p>}
     </Card>
@@ -106,7 +106,7 @@ function GenerationPage({ onNavigate, token, recordings, initialText, draftSourc
 function ResultsPage({ onNavigate, token, outputs, onOutputDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; outputs: LocalOutput[]; onOutputDeleted: (id: string) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="LOCAL OUTPUTS" title="생성 결과" description="완성된 오디오를 다시 듣고, 평가하고, WAV 파일로 저장합니다." />
+      <PageHeading eyebrow="내 PC에 저장된 파일" title="생성 결과" description="완성된 이야기를 다시 듣고 WAV 파일로 저장하거나, 필요 없는 결과를 정리합니다." />
       {token && outputs.length > 0 ? outputs.map((output) => <AudioOutputCard key={output.id} token={token} output={output} onDeleted={onOutputDeleted} />) : <Card className="empty-card">
         <div className="empty-state">
           <span className="empty-state__icon" aria-hidden="true">▤</span>
@@ -120,37 +120,46 @@ function ResultsPage({ onNavigate, token, outputs, onOutputDeleted }: { onNaviga
 }
 
 function SettingsPage({ systemInfo }: { systemInfo: RuntimeSystem | null }) {
-  return (
-    <div className="page-stack">
-      <PageHeading eyebrow="LOCAL SETUP" title="설정 및 설치" description="내 PC에서 음성 스튜디오를 실행하기 위한 준비 상태를 확인합니다." />
-      <div className="settings-grid">
-        <Card className="side-card" title="Windows + WSL2 설치 안내" description="웹 화면은 Vercel에서 열고, Python 런타임과 모델은 내 PC의 WSL2에서 실행합니다.">
-          <div className="privacy-detail"><span aria-hidden="true">01</span><p>Ubuntu WSL2를 준비하고 프로젝트 파일을 받은 뒤 안내에 따라 런타임을 설치하고 실행합니다.</p></div>
-          <div className="install-links">
-            <a href="/install/windows-wsl.md" target="_blank" rel="noreferrer">Windows + WSL2 설치 가이드</a>
-            <a href="/install/windows/install-local-voice.ps1" download>PowerShell 설치 스크립트</a>
-            <a href="/install/windows/start-local-voice.ps1" download>PowerShell 실행 스크립트</a>
-          </div>
-        </Card>
+  const sections = [
+    {
+      id: 'install', label: '설치 및 연결', icon: '↓', content: <Card title="Windows 설치 안내" description="설치 프로그램이 이 PC에 로컬 앱을 준비하고 실행합니다. 음성 모델은 이 화면에서 별도로 내려받습니다.">
+        <div className="privacy-detail"><span aria-hidden="true">01</span><p>설치 프로그램을 실행한 뒤 이 페이지에서 로컬 앱 연결과 모델 다운로드를 완료합니다.</p></div>
+        <div className="install-links">
+          <a href="/install/windows/VoiceStudioSetup.exe" download>Windows 설치 프로그램 다운로드</a>
+          <a href="/install/windows-wsl.md" target="_blank" rel="noreferrer">Windows 설치 안내</a>
+        </div>
+      </Card>,
+    },
+    {
+      id: 'computer', label: 'PC 환경', icon: '⌘', content: <div className="settings-section-content">
         <Card title="PC 로컬 앱" description="모델을 실행하고 녹음 파일을 보관하는 작은 프로그램입니다.">
-          <div className="setting-row"><span className="setting-icon">01</span><div><strong>로컬 런타임</strong><p>PC의 loopback 주소에서 실행되며 이 브라우저 탭과 페어링합니다.</p></div><span className="setting-state">{systemInfo ? '연결됨' : '연결 필요'}</span></div>
+          <div className="setting-row"><span className="setting-icon">01</span><div><strong>내 PC 앱</strong><p>음성 녹음과 생성을 담당하는 PC 앱입니다. 이 브라우저와 연결해 사용합니다.</p></div><span className="setting-state">{systemInfo ? '연결됨' : '연결 필요'}</span></div>
           <div className="setting-row"><span className="setting-icon">02</span><div><strong>로컬 연결 권한</strong><p>웹페이지가 내 PC의 로컬 앱에 접근할 때 브라우저 권한을 요청합니다.</p></div><span className="setting-state">{systemInfo ? '허용됨' : '연결 후 확인'}</span></div>
           <div className="setting-row"><span className="setting-icon">03</span><div><strong>음성 모델</strong><p>Qwen3-TTS 0.6B Base는 음성 생성 화면에서 확인하고 설치할 수 있습니다.</p></div><span className="setting-state">모델 페이지에서 확인</span></div>
         </Card>
         {systemInfo && <Card title="이 PC에서 확인한 실행 자원" description="로컬 런타임이 보고한 정보이며 별도 서버로 보내지 않습니다.">
           <div className="resource-grid">
             <div><span>운영체제</span><strong>{systemInfo.os} · {systemInfo.architecture}</strong></div>
-            <div><span>논리 CPU</span><strong>{systemInfo.cpu_logical_count ?? '확인 불가'} 코어</strong></div>
+            <div><span>CPU 코어 수</span><strong>{systemInfo.cpu_logical_count ?? '확인 불가'} 코어</strong></div>
             <div><span>총 메모리</span><strong>{systemInfo.memory_total_gib?.toFixed(1) ?? '확인 불가'} GiB</strong></div>
             <div><span>현재 가용 메모리</span><strong>{systemInfo.memory_available_gib?.toFixed(1) ?? '확인 불가'} GiB</strong></div>
             <div><span>모델 캐시 여유</span><strong>{systemInfo.model_cache_disk_free_gib.toFixed(1)} GiB</strong></div>
           </div>
         </Card>}
-        <Card className="side-card" title="개인정보와 저장" description="음성과 텍스트는 내 PC 안에 보관합니다.">
-          <div className="privacy-detail"><span aria-hidden="true">⌑</span><p>Vercel은 화면만 제공합니다. 녹음 파일, 대본, 생성 음성은 로컬 앱이 관리하고 외부 추론 API로 보내지 않습니다.</p></div>
-          <div className="storage-detail"><span>저장 위치</span><strong>로컬 앱 연결 후 표시</strong></div>
-        </Card>
-      </div>
+      </div>,
+    },
+    {
+      id: 'privacy', label: '개인정보와 저장', icon: '⌑', content: <Card title="내 PC에 저장" description="녹음, 대본, 생성 결과는 내 PC 안에 보관합니다.">
+        <div className="privacy-detail"><span aria-hidden="true">⌑</span><p>Vercel은 화면만 제공합니다. 녹음 파일, 대본, 생성 음성은 로컬 앱이 관리하고 외부 추론 API로 보내지 않습니다.</p></div>
+        <div className="storage-detail"><span>저장 위치</span><strong>로컬 앱 연결 후 표시</strong></div>
+      </Card>,
+    },
+  ]
+
+  return (
+    <div className="settings-page page-stack">
+      <PageHeading eyebrow="내 PC 환경" title="설정 및 설치" description="PC 앱 연결, 모델 준비 상태, 녹음 파일 저장 위치를 확인합니다." />
+      <WindsoftSettingsPage title="설정 항목" sections={sections} defaultSection="install" className="settings-template" />
     </div>
   )
 }
@@ -182,7 +191,7 @@ export function App() {
   const [systemInfo, setSystemInfo] = useState<RuntimeSystem | null>(null)
   const [generationDraft, setGenerationDraft] = useState<{ text: string; source: 'recording' | 'storybook' } | null>(null)
 
-  async function connectRuntime(code: string) {
+  async function connectRuntime(code?: string) {
     setConnectionState('checking')
     try {
       await getRuntimeHealth()
@@ -242,7 +251,6 @@ export function App() {
 
   if (!setupComplete) {
     return <SetupScreen
-      connectionState={connectionState}
       token={runtimeToken}
       model={baselineModel}
       onPair={connectRuntime}

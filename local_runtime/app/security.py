@@ -26,7 +26,11 @@ class PairingManager:
         self._attempts += 1
         if not hmac.compare_digest(candidate, self._code):
             return None
+        return self.create_session()
+
+    def create_session(self) -> Session:
         self._code = ""
+        self._attempts = 5
         token = secrets.token_urlsafe(32)
         self._session = Session(token=token, expires_at=time.monotonic() + self._session_ttl_seconds)
         return self._session

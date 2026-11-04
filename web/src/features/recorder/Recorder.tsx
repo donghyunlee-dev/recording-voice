@@ -251,12 +251,7 @@ export function Recorder({ token, onSaved }: RecorderProps) {
   return (
     <Card className="recorder-card" title="새 녹음" description="마이크로 녹음하거나 오디오 파일을 가져와 이 PC에만 저장합니다.">
       <div className="professional-recorder">
-        <div className="audio-import-control">
-          <label htmlFor="audio-file-import">오디오 파일 가져오기</label>
-          <input id="audio-file-import" type="file" accept=".wav,.webm,.ogg,audio/wav,audio/webm,audio/ogg" onChange={(event) => void importTake(event)} disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'} />
-          <small>WAV, WebM, OGG · 최대 5분 · 파일은 이 브라우저에서 24 kHz mono WAV로 변환합니다.</small>
-        </div>
-        <FormField label="동화 연습 대본" hint="녹음 전에 짧은 문장을 골라 읽어보세요.">
+        <FormField label="1단계 · 읽을 동화 대본" hint="짧은 문장을 골라 먼저 읽어보세요. 아래 대본은 직접 고치거나 붙여넣을 수 있습니다.">
           <select className="generation-select" value={selectedPrompt} onChange={(event) => {
             const prompt = narrationPrompts.find((item) => item.id === event.target.value)
             setSelectedPrompt(event.target.value)
@@ -267,9 +262,12 @@ export function Recorder({ token, onSaved }: RecorderProps) {
           </select>
         </FormField>
         {selectedPrompt && <div className="recording-script-preview" aria-label="읽을 동화 대본">{transcript}</div>}
+        <FormField label="녹음할 문장" hint="선택한 문장을 그대로 읽어 주세요. 자동 전사는 아직 지원하지 않아, 실제로 읽은 문장과 같게 저장해 주세요.">
+          <Textarea rows={4} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
+        </FormField>
         <div className="recorder-controls-row">
           <div className="recorder-device-control">
-            <label htmlFor="recording-device">입력 장치</label>
+            <label htmlFor="recording-device">2단계 · 마이크 선택</label>
             <select
               id="recording-device"
               value={selectedDevice}
@@ -289,6 +287,7 @@ export function Recorder({ token, onSaved }: RecorderProps) {
         <div className={`input-meter${level > 0.88 ? ' input-meter--hot' : ''}`} role="meter" aria-label="마이크 입력 레벨" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
           <span style={{ width: `${Math.round(level * 100)}%` }} />
         </div>
+        <p className="recorder-step-label">3단계 · 녹음하고 저장</p>
         <div className="recorder-live-state" aria-live="polite">
           <span className={`recording-indicator${recording ? ' recording-indicator--active' : ''}`} />
           {countdown !== null ? `${countdown}초 뒤 녹음 시작` : recordState === 'recording' ? '녹음 중' : recordState === 'paused' ? '일시정지' : recordState === 'converting' ? 'WAV 파일 준비 중' : recordState === 'saving' ? '로컬 저장 중' : recordState === 'saved' ? '저장 완료' : '준비됨'}
@@ -305,10 +304,7 @@ export function Recorder({ token, onSaved }: RecorderProps) {
         </div>
 
         {previewUrl && <audio className="recording-preview" controls src={previewUrl} aria-label="녹음 미리듣기" />}
-        <FormField label="녹음 대본" hint="선택한 문장을 그대로 읽어 주세요. 자동 전사 기능은 아직 없으므로 직접 읽을 문장과 일치하는지 확인해 주세요.">
-          <Textarea rows={4} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
-        </FormField>
-        <p className="recorder-take-guidance">목소리를 여러 번 녹음해도 좋아요. 녹음마다 별도 take로 저장하고, 음성 생성 때 한 개씩 선택해 비교합니다.</p>
+        <p className="recorder-take-guidance">여러 번 녹음해도 괜찮아요. 녹음은 각각 저장되며, 음성 생성에서 하나씩 골라 결과를 비교할 수 있습니다.</p>
         {error && <p className="recorder-error" role="alert">{error}</p>}
         {savedMessage && <p className="recorder-saved" role="status">{savedMessage}</p>}
         <div className="recorder-action-row recorder-action-row--secondary">
@@ -316,6 +312,14 @@ export function Recorder({ token, onSaved }: RecorderProps) {
           {previewUrl && <a className="download-take" href={previewUrl} download="voice-take.wav">WAV 다운로드</a>}
           <Button variant="primary" onClick={() => void saveTake()} disabled={!wav || !transcript.trim() || recordState === 'saving'}>이 PC에 저장</Button>
         </div>
+        <details className="audio-import-details">
+          <summary>기존 오디오 파일이 있나요?</summary>
+          <div className="audio-import-control">
+            <label htmlFor="audio-file-import">기존 녹음 파일 가져오기</label>
+            <input id="audio-file-import" type="file" accept=".wav,.webm,.ogg,audio/wav,audio/webm,audio/ogg" onChange={(event) => void importTake(event)} disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'} />
+            <small>WAV, WebM, OGG · 최대 5분 · 이 브라우저에서 24 kHz mono WAV로 변환합니다.</small>
+          </div>
+        </details>
       </div>
     </Card>
   )
