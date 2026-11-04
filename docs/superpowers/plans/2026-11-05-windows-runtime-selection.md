@@ -59,5 +59,5 @@
 
 - [x] Run focused runtime tests, `git diff --check`, and web build.
 - [x] Compile the Windows installer and verify the launcher source packaged at build includes 8766.
-- [ ] Commit scoped files and push `master` to trigger Vercel production deployment.
-- [ ] Verify the deployment is Ready and the public installer matches the built EXE.
+- [x] Commit scoped files and push `master` to trigger Vercel production deployment.
+- [x] Verify the deployment is Ready and the public installer matches the built EXE.
