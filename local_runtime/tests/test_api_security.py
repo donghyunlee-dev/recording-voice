@@ -1,5 +1,6 @@
 import json
 import os
+import platform
 import socket
 import subprocess
 import sys
@@ -83,6 +84,7 @@ class LocalApiSecurityTests(unittest.TestCase):
         self.assertEqual(status, 200)
         payload = json.loads(body)
         self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["os"], platform.system())
         self.assertNotIn("path", json.dumps(payload).lower())
 
     def test_unapproved_origin_and_host_are_rejected(self):

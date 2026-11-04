@@ -62,9 +62,7 @@ function RuntimeSetupStep({ onPair }: Pick<SetupScreenProps, 'onPair'>) {
           setError('')
         }
       } catch (reason) {
-        if (active && reason instanceof LocalRuntimeError && reason.code === 'local_access_blocked') {
-          setError('브라우저에서 이 사이트의 로컬 네트워크 권한을 허용해 주세요.')
-        }
+        if (active && reason instanceof LocalRuntimeError) setError(reason.message)
       } finally {
         requestInFlight = false
       }
@@ -82,9 +80,7 @@ function RuntimeSetupStep({ onPair }: Pick<SetupScreenProps, 'onPair'>) {
     void getRuntimeHealth().then((health) => {
       if (health.status === 'ok') setRuntimeDetected(true)
     }).catch((reason: unknown) => {
-      if (reason instanceof LocalRuntimeError && reason.code === 'local_access_blocked') {
-        setError('브라우저에서 이 사이트의 로컬 네트워크 권한을 허용해 주세요.')
-      }
+      if (reason instanceof Error) setError(reason.message)
     })
   }
 

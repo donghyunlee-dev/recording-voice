@@ -14,6 +14,7 @@ $LogsDir = Join-Path $AppData "logs"
 $StdoutLog = Join-Path $LogsDir "backend-out.log"
 $StderrLog = Join-Path $LogsDir "backend-error.log"
 $Python = Join-Path $InstallRoot ".venv\Scripts\python.exe"
+$RuntimePort = 8766
 
 if (-not (Test-Path $Python)) { throw "Voice Studio is not installed. Run the Windows installer first." }
 New-Item -ItemType Directory -Force -Path $DataDir, $ModelCache, $LogsDir | Out-Null
@@ -27,11 +28,11 @@ $env:LOCAL_VOICE_DATA_DIR = $DataDir
 $env:HF_HOME = $ModelCache
 $env:LOCAL_VOICE_ALLOWED_ORIGINS = $AllowedOrigin
 $env:LOCAL_VOICE_AUTO_PAIR = "1"
-$env:LOCAL_VOICE_PORT = "8765"
+$env:LOCAL_VOICE_PORT = "$RuntimePort"
 
 try {
-    $health = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/health" -TimeoutSec 2
-    if ($health.status -eq "ok") { exit 0 }
+    $health = Invoke-RestMethod -Uri "http://127.0.0.1:$RuntimePort/api/v1/health" -TimeoutSec 2
+    if ($health.status -eq "ok" -and $health.os -eq "Windows") { exit 0 }
 } catch { }
 
 $process = Start-Process -FilePath $Python -ArgumentList @("-m", "local_runtime.app") `
@@ -42,8 +43,8 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
     Start-Sleep -Seconds 1
     if ($process.HasExited) { throw "The local backend stopped during startup. Check $StderrLog." }
     try {
-        $health = Invoke-RestMethod -Uri "http://127.0.0.1:8765/api/v1/health" -TimeoutSec 2
-        if ($health.status -eq "ok") { exit 0 }
+        $health = Invoke-RestMethod -Uri "http://127.0.0.1:$RuntimePort/api/v1/health" -TimeoutSec 2
+        if ($health.status -eq "ok" -and $health.os -eq "Windows") { exit 0 }
     } catch { }
 }
 throw "The local backend did not become ready. Check $StderrLog."

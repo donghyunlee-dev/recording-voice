@@ -2,6 +2,7 @@ export interface RuntimeHealth {
   status: 'ok'
   version: string
   api_version: 'v1'
+  os?: string
 }
 
 export interface RuntimeSession {
@@ -87,6 +88,7 @@ export type RuntimeErrorCode =
   | 'unsupported_model'
   | 'disk_space_insufficient'
   | 'memory_insufficient'
+  | 'windows_runtime_required'
   | 'unknown'
 
 export class LocalRuntimeError extends Error {
@@ -96,7 +98,10 @@ export class LocalRuntimeError extends Error {
   }
 }
 
-const runtimeBaseUrl = 'http://127.0.0.1:8765/api/v1'
+const windowsRuntimeBaseUrl = 'http://127.0.0.1:8766/api/v1'
+const linuxRuntimeBaseUrl = 'http://127.0.0.1:8765/api/v1'
+let runtimeBaseUrl = linuxRuntimeBaseUrl
+let discoveryInFlight: Promise<RuntimeHealth> | null = null
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   try {
@@ -139,12 +144,53 @@ function runtimeMessage(code?: RuntimeErrorCode): string {
     case 'unsupported_model': return '지원하지 않는 모델입니다.'
     case 'disk_space_insufficient': return '모델을 내려받을 디스크 공간이 부족합니다. 모델 캐시에 최소 8 GiB를 확보해 주세요.'
     case 'memory_insufficient': return '현재 사용 가능한 메모리가 부족합니다. 다른 프로그램을 종료한 뒤 다시 시도해 주세요.'
+    case 'windows_runtime_required': return 'Windows 백엔드 대신 Linux/WSL 백엔드가 응답했습니다. Windows 설치 프로그램을 다시 실행해 주세요.'
     default: return 'PC에서 로컬 앱이 실행 중인지 확인해 주세요.'
   }
 }
 
 export async function getRuntimeHealth(): Promise<RuntimeHealth> {
-  return request<RuntimeHealth>('/health')
+  if (!discoveryInFlight) {
+    discoveryInFlight = discoverRuntime().finally(() => { discoveryInFlight = null })
+  }
+  return discoveryInFlight
+}
+
+async function discoverRuntime(): Promise<RuntimeHealth> {
+  for (const candidate of [
+    { baseUrl: windowsRuntimeBaseUrl, requireWindows: true },
+    { baseUrl: linuxRuntimeBaseUrl, requireWindows: !import.meta.env.DEV },
+  ]) {
+    let response: Response
+    try {
+      response = await fetch(`${candidate.baseUrl}/health`, {
+        targetAddressSpace: 'loopback',
+      } as RequestInit)
+    } catch {
+      // Try the legacy WSL development port if the Windows app is not reachable.
+      continue
+    }
+    if (!response.ok) continue
+    let health: RuntimeHealth
+    try {
+      health = await response.json() as RuntimeHealth
+    } catch {
+      continue
+    }
+    if (health.status !== 'ok') continue
+    if (candidate.requireWindows && health.os !== 'Windows') {
+      if (candidate.baseUrl === linuxRuntimeBaseUrl) {
+        throw new LocalRuntimeError('windows_runtime_required', runtimeMessage('windows_runtime_required'))
+      }
+      continue
+    }
+    runtimeBaseUrl = candidate.baseUrl
+    return health
+  }
+  if (location.protocol === 'https:') {
+    throw new LocalRuntimeError('local_access_blocked', '브라우저가 로컬 접근을 차단했거나 로컬 앱이 중지되었습니다. 주소 표시줄의 로컬 네트워크/Loopback 권한과 PC 앱 실행 상태를 확인해 주세요.')
+  }
+  throw new LocalRuntimeError('runtime_unavailable', 'PC에서 로컬 앱이 실행 중인지 확인해 주세요.')
 }
 
 export async function pairRuntime(code?: string): Promise<RuntimeSession> {

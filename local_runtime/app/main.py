@@ -103,7 +103,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/v1/health")
     async def health():
-        return {"status": "ok", "version": app.version, "api_version": "v1"}
+        return {"status": "ok", "version": app.version, "api_version": "v1", "os": platform.system()}
 
     @app.post("/api/v1/pair")
     async def pair(payload: PairRequest, request: Request, x_local_request: str | None = Header(default=None)):

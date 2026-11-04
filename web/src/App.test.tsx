@@ -112,10 +112,10 @@ describe('App first-run flow', () => {
 
 function stubReadyRuntime(modelStatus: 'installed' | 'not_installed', recordings: unknown[] = []) {
   return vi.fn()
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1' }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1' }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', os: 'Windows' }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', os: 'Windows' }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'memory-token', expires_in: 43200, token_type: 'Bearer' }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ os: 'Linux', architecture: 'x86_64', cpu_logical_count: 12, memory_total_gib: 7.5, memory_available_gib: 5.8, model_cache_disk_free_gib: 20 }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ os: 'Windows', architecture: 'AMD64', cpu_logical_count: 12, memory_total_gib: 16, memory_available_gib: 8, model_cache_disk_free_gib: 20 }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ items: recordings }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [] }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [{
