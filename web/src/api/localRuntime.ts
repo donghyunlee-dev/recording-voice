@@ -100,6 +100,7 @@ export class LocalRuntimeError extends Error {
 
 const windowsRuntimeBaseUrl = 'http://127.0.0.1:8766/api/v1'
 const linuxRuntimeBaseUrl = 'http://127.0.0.1:8765/api/v1'
+const runtimeHealthTimeoutMs = 2500
 let runtimeBaseUrl = linuxRuntimeBaseUrl
 let discoveryInFlight: Promise<RuntimeHealth> | null = null
 
@@ -161,21 +162,21 @@ async function discoverRuntime(): Promise<RuntimeHealth> {
     { baseUrl: windowsRuntimeBaseUrl, requireWindows: true },
     { baseUrl: linuxRuntimeBaseUrl, requireWindows: !import.meta.env.DEV },
   ]) {
-    let response: Response
+    let health: RuntimeHealth
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), runtimeHealthTimeoutMs)
     try {
-      response = await fetch(`${candidate.baseUrl}/health`, {
+      const response = await fetch(`${candidate.baseUrl}/health`, {
         targetAddressSpace: 'loopback',
+        signal: controller.signal,
       } as RequestInit)
+      if (!response.ok) continue
+      health = await response.json() as RuntimeHealth
     } catch {
       // Try the legacy WSL development port if the Windows app is not reachable.
       continue
-    }
-    if (!response.ok) continue
-    let health: RuntimeHealth
-    try {
-      health = await response.json() as RuntimeHealth
-    } catch {
-      continue
+    } finally {
+      window.clearTimeout(timeoutId)
     }
     if (health.status !== 'ok') continue
     if (candidate.requireWindows && health.os !== 'Windows') {

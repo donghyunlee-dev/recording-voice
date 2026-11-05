@@ -2,7 +2,7 @@ import { Button, Card, SettingsPage as WindsoftSettingsPage, Typography } from '
 import { useEffect, useState } from 'react'
 import { AppShell, type AppRoute } from './components/AppShell'
 import { ConnectionStatus, type ConnectionState } from './components/ConnectionStatus'
-import { deleteRecording, getRecordingAudio, getRuntimeHealth, getRuntimeSystem, listModels, listOutputs, listRecordings, LocalRuntimeError, pairRuntime, type LocalModel, type LocalOutput, type LocalRecording, type RuntimeSystem } from './api/localRuntime'
+import { deleteRecording, getRecordingAudio, getRuntimeHealth, getRuntimeSystem, listOutputs, listRecordings, LocalRuntimeError, pairRuntime, type LocalOutput, type LocalRecording, type RuntimeSystem } from './api/localRuntime'
 import { SetupScreen } from './components/Onboarding/SetupScreen'
 import { Recorder } from './features/recorder/Recorder'
 import { GenerationWorkspace } from './features/generation/GenerationWorkspace'
@@ -187,7 +187,6 @@ export function App() {
   const [runtimeToken, setRuntimeToken] = useState<string | null>(null)
   const [recordings, setRecordings] = useState<LocalRecording[]>([])
   const [outputs, setOutputs] = useState<LocalOutput[]>([])
-  const [models, setModels] = useState<LocalModel[]>([])
   const [systemInfo, setSystemInfo] = useState<RuntimeSystem | null>(null)
   const [generationDraft, setGenerationDraft] = useState<{ text: string; source: 'recording' | 'storybook' } | null>(null)
 
@@ -199,10 +198,8 @@ export function App() {
       const system = await getRuntimeSystem(session.access_token)
       const savedRecordings = await listRecordings(session.access_token)
       const savedOutputs = await listOutputs(session.access_token)
-      const installedModels = await listModels(session.access_token)
       setRecordings(savedRecordings)
       setOutputs(savedOutputs)
-      setModels(installedModels)
       setSystemInfo(system)
       setRuntimeToken(session.access_token)
       setActiveRoute('record')
@@ -241,20 +238,15 @@ export function App() {
     setConnectionState('disconnected')
     setRecordings([])
     setOutputs([])
-    setModels([])
     setSystemInfo(null)
     setActiveRoute('record')
   }
 
-  const baselineModel = models.find((model) => model.id === 'qwen3-tts-0.6b-base') ?? null
-  const setupComplete = runtimeToken !== null && connectionState === 'connected' && baselineModel?.status === 'installed'
+  const setupComplete = runtimeToken !== null && connectionState === 'connected'
 
   if (!setupComplete) {
     return <SetupScreen
-      token={runtimeToken}
-      model={baselineModel}
       onPair={connectRuntime}
-      onModelsUpdated={setModels}
     />
   }
 
