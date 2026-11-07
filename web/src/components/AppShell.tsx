@@ -7,6 +7,7 @@ export type AppRoute = 'record' | 'storybook' | 'voices' | 'generate' | 'results
 interface AppShellProps {
   activeRoute: AppRoute
   onNavigate: (route: AppRoute) => void
+  onReconnect?: () => void
   connectionState: ConnectionState
   children: ReactNode
 }
@@ -19,7 +20,7 @@ const primaryLinks: { route: AppRoute; label: string; icon: string }[] = [
   { route: 'results', label: '생성 결과', icon: '▤' },
 ]
 
-export function AppShell({ activeRoute, onNavigate, connectionState, children }: AppShellProps) {
+export function AppShell({ activeRoute, onNavigate, onReconnect, connectionState, children }: AppShellProps) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -89,6 +90,7 @@ export function AppShell({ activeRoute, onNavigate, connectionState, children }:
           </div>
           <div className="topbar__actions">
             <StatusBadge status={connectionState === 'connected' ? 'success' : 'inactive'} label={connectionState === 'connected' ? '로컬 연결됨' : '로컬 연결 전'} />
+            {activeRoute === 'record' && connectionState === 'connected' && onReconnect && <button className="help-button reconnect-button" type="button" aria-label="로컬 앱 다시 연결" title="로컬 앱 다시 연결" onClick={onReconnect}>↻</button>}
             <button className="help-button" type="button" aria-label="설치 및 도움말 보기" onClick={() => onNavigate('settings')}>
               <span aria-hidden="true">?</span>
             </button>

@@ -1,4 +1,4 @@
-import { Button, Card, FormField, Textarea } from '@windsoft/ui'
+import { Button, Card, Textarea } from '@windsoft/ui'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { saveRecording, type LocalRecording } from '../../api/localRuntime'
 import { convertRecordingToWav, importAudioFile } from './wav'
@@ -249,78 +249,85 @@ export function Recorder({ token, onSaved }: RecorderProps) {
   const recording = recordState === 'recording' || recordState === 'paused'
 
   return (
-    <Card className="recorder-card" title="새 녹음" description="마이크로 녹음하거나 오디오 파일을 가져와 이 PC에만 저장합니다.">
-      <div className="professional-recorder">
-        <FormField label="1단계 · 읽을 동화 대본" hint="짧은 문장을 골라 먼저 읽어보세요. 아래 대본은 직접 고치거나 붙여넣을 수 있습니다.">
-          <select className="generation-select" value={selectedPrompt} onChange={(event) => {
+    <Card className="recorder-card" title="내 목소리 녹음">
+      <div className="recorder-workspace">
+        <section className="recorder-script-panel" aria-label="녹음 대본">
+          <div className="recorder-panel-heading"><span aria-hidden="true">▤</span><h2>읽을 대본</h2></div>
+          <select className="generation-select" aria-label="동화 문장 선택" value={selectedPrompt} onChange={(event) => {
             const prompt = narrationPrompts.find((item) => item.id === event.target.value)
             setSelectedPrompt(event.target.value)
             if (prompt) setTranscript(prompt.text)
           }} disabled={recording || recordState === 'saving'}>
-            <option value="">짧은 동화 문장 선택</option>
+            <option value="">동화 문장 선택</option>
             {narrationPrompts.map((prompt) => <option value={prompt.id} key={prompt.id}>{prompt.title}</option>)}
           </select>
-        </FormField>
-        {selectedPrompt && <div className="recording-script-preview" aria-label="읽을 동화 대본">{transcript}</div>}
-        <FormField label="녹음할 문장" hint="선택한 문장을 그대로 읽어 주세요. 자동 전사는 아직 지원하지 않아, 실제로 읽은 문장과 같게 저장해 주세요.">
-          <Textarea rows={4} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
-        </FormField>
-        <div className="recorder-controls-row">
-          <div className="recorder-device-control">
-            <label htmlFor="recording-device">2단계 · 마이크 선택</label>
-            <select
-              id="recording-device"
-              value={selectedDevice}
-              onChange={(event) => { setSelectedDevice(event.target.value); if (stream) void connectMicrophone(event.target.value) }}
-              disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}
-            >
-              <option value="">기본 마이크</option>
-              {devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `마이크 ${index + 1}`}</option>)}
-            </select>
+          <label className="recorder-field-label" htmlFor="recording-transcript">대본</label>
+          <Textarea id="recording-transcript" aria-label="읽을 대본" rows={3} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
+          <div className="script-length" aria-hidden="true"><span>{transcript.length}</span> / 5,000</div>
+        </section>
+
+        <section className="recorder-console" aria-label="녹음 조작">
+          <div className="recorder-panel-heading"><span aria-hidden="true">◉</span><h2>마이크</h2></div>
+          <div className="recorder-controls-row">
+            <div className="recorder-device-control">
+              <label htmlFor="recording-device">입력 장치</label>
+              <select
+                id="recording-device"
+                value={selectedDevice}
+                onChange={(event) => { setSelectedDevice(event.target.value); if (stream) void connectMicrophone(event.target.value) }}
+                disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}
+              >
+                <option value="">기본 마이크</option>
+                {devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `마이크 ${index + 1}`}</option>)}
+              </select>
+            </div>
+            <Button variant={stream ? 'secondary' : 'primary'} onClick={() => void connectMicrophone()} disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}>
+              {stream ? '마이크 다시 연결' : '마이크 연결'}
+            </Button>
           </div>
-          <Button variant={stream ? 'secondary' : 'primary'} onClick={() => void connectMicrophone()} disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}>
-            {stream ? '마이크 다시 연결' : '마이크 연결 및 확인'}
-          </Button>
-        </div>
 
-        {trackSettings && <p className="device-info">{trackSettings.sampleRate ? `${trackSettings.sampleRate.toLocaleString()} Hz` : '샘플레이트 확인 불가'} · {trackSettings.channelCount ?? 1}채널</p>}
-        <div className={`input-meter${level > 0.88 ? ' input-meter--hot' : ''}`} role="meter" aria-label="마이크 입력 레벨" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
-          <span style={{ width: `${Math.round(level * 100)}%` }} />
-        </div>
-        <p className="recorder-step-label">3단계 · 녹음하고 저장</p>
-        <div className="recorder-live-state" aria-live="polite">
-          <span className={`recording-indicator${recording ? ' recording-indicator--active' : ''}`} />
-          {countdown !== null ? `${countdown}초 뒤 녹음 시작` : recordState === 'recording' ? '녹음 중' : recordState === 'paused' ? '일시정지' : recordState === 'converting' ? 'WAV 파일 준비 중' : recordState === 'saving' ? '로컬 저장 중' : recordState === 'saved' ? '저장 완료' : '준비됨'}
-          <strong className="recorder-time">{formatTime(elapsedSeconds)}</strong>
-          <small>최대 05:00</small>
-        </div>
-
-        <div className="recorder-action-row">
-          <Button variant="primary" size="lg" onClick={startCapture} disabled={!stream || recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}>
-            녹음 시작
-          </Button>
-          <Button variant="secondary" onClick={pauseCapture} disabled={!recording}>{recordState === 'paused' ? '녹음 이어가기' : '일시정지'}</Button>
-          <Button variant="secondary" onClick={stopCapture} disabled={!recording && countdown === null}>중지</Button>
-        </div>
-
-        {previewUrl && <audio className="recording-preview" controls src={previewUrl} aria-label="녹음 미리듣기" />}
-        <p className="recorder-take-guidance">여러 번 녹음해도 괜찮아요. 녹음은 각각 저장되며, 음성 생성에서 하나씩 골라 결과를 비교할 수 있습니다.</p>
-        {error && <p className="recorder-error" role="alert">{error}</p>}
-        {savedMessage && <p className="recorder-saved" role="status">{savedMessage}</p>}
-        <div className="recorder-action-row recorder-action-row--secondary">
-          <Button variant="secondary" onClick={discardTake} disabled={!wav || recordState === 'saving'}>다시 녹음</Button>
-          {previewUrl && <a className="download-take" href={previewUrl} download="voice-take.wav">WAV 다운로드</a>}
-          <Button variant="primary" onClick={() => void saveTake()} disabled={!wav || !transcript.trim() || recordState === 'saving'}>이 PC에 저장</Button>
-        </div>
-        <details className="audio-import-details">
-          <summary>기존 오디오 파일이 있나요?</summary>
-          <div className="audio-import-control">
-            <label htmlFor="audio-file-import">기존 녹음 파일 가져오기</label>
-            <input id="audio-file-import" type="file" accept=".wav,.webm,.ogg,audio/wav,audio/webm,audio/ogg" onChange={(event) => void importTake(event)} disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'} />
-            <small>WAV, WebM, OGG · 최대 5분 · 이 브라우저에서 24 kHz mono WAV로 변환합니다.</small>
+          <div className={`input-meter${level > 0.88 ? ' input-meter--hot' : ''}`} role="meter" aria-label="마이크 입력 레벨" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(level * 100)}>
+            <span style={{ width: `${Math.round(level * 100)}%` }} />
           </div>
-        </details>
+          {trackSettings && <span className="device-info" aria-label="마이크 설정">{trackSettings.sampleRate ? `${trackSettings.sampleRate.toLocaleString()} Hz` : '샘플레이트 확인 불가'} · {trackSettings.channelCount ?? 1}채널</span>}
+
+          <div className="recorder-live-state" aria-live="polite">
+            <span className={`recording-indicator${recording ? ' recording-indicator--active' : ''}`} aria-hidden="true" />
+            <span>{countdown !== null ? `${countdown}초 뒤 녹음 시작` : recordState === 'recording' ? '녹음 중' : recordState === 'paused' ? '일시정지' : recordState === 'converting' ? '오디오 준비 중' : recordState === 'saving' ? '저장 중' : recordState === 'saved' ? '저장 완료' : '준비됨'}</span>
+            <strong className="recorder-time">{formatTime(elapsedSeconds)}</strong>
+          </div>
+
+          <div className="recorder-action-row">
+            <Button className="recorder-start-button" variant="primary" size="lg" onClick={startCapture} disabled={!stream || recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}>
+              <span aria-hidden="true">●</span> 녹음 시작
+            </Button>
+            <Button variant="secondary" onClick={pauseCapture} disabled={!recording}>{recordState === 'paused' ? '이어 녹음' : '일시정지'}</Button>
+            <Button variant="secondary" onClick={stopCapture} disabled={!recording && countdown === null}>중지</Button>
+          </div>
+
+          <div className="recording-cues" aria-label="녹음 환경">
+            <span><i aria-hidden="true">⌂</i><strong>조용한 공간</strong></span>
+            <span><i aria-hidden="true">↔</i><strong>15–20cm</strong></span>
+            <span><i aria-hidden="true">〰</i><strong>편안한 속도</strong></span>
+          </div>
+        </section>
       </div>
+
+      {previewUrl && <audio className="recording-preview" controls src={previewUrl} aria-label="녹음 미리듣기" />}
+      {error && <p className="recorder-error" role="alert">{error}</p>}
+      {savedMessage && <p className="recorder-saved" role="status">{savedMessage}</p>}
+      {wav && <div className="recorder-action-row recorder-action-row--secondary">
+        <Button variant="secondary" onClick={discardTake} disabled={recordState === 'saving'}>다시 녹음</Button>
+        {previewUrl && <a className="download-take" href={previewUrl} download="voice-take.wav">WAV 다운로드</a>}
+        <Button variant="primary" onClick={() => void saveTake()} disabled={!transcript.trim() || recordState === 'saving'}>이 PC에 저장</Button>
+      </div>}
+      <details className="audio-import-details">
+        <summary>오디오 파일 가져오기</summary>
+        <div className="audio-import-control">
+          <label htmlFor="audio-file-import">녹음 파일</label>
+          <input id="audio-file-import" type="file" accept=".wav,.webm,.ogg,audio/wav,audio/webm,audio/ogg" onChange={(event) => void importTake(event)} disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'} />
+        </div>
+      </details>
     </Card>
   )
 }

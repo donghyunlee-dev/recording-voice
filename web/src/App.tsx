@@ -9,12 +9,12 @@ import { GenerationWorkspace } from './features/generation/GenerationWorkspace'
 import { AudioOutputCard } from './features/results/AudioOutputCard'
 import { StorybookPage } from './features/storybook/StorybookPage'
 
-function PageHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+function PageHeading({ eyebrow, title, description }: { eyebrow?: string; title: string; description?: string }) {
   return (
     <div className="page-heading">
-      <Typography variant="caption" className="section-kicker">{eyebrow}</Typography>
+      {eyebrow && <Typography variant="caption" className="section-kicker">{eyebrow}</Typography>}
       <Typography variant="h1">{title}</Typography>
-      <Typography variant="body-sm">{description}</Typography>
+      {description && <Typography variant="body-sm">{description}</Typography>}
     </div>
   )
 }
@@ -22,26 +22,17 @@ function PageHeading({ eyebrow, title, description }: { eyebrow: string; title: 
 function RecordingPage({ onNavigate, token, recordings, onSaved }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onSaved: (recording: LocalRecording) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="1단계 · 내 목소리 저장" title="먼저 내 목소리를 녹음해요" description="녹음한 목소리와 정확한 대본을 저장하면, 다음 단계에서 원하는 한국어 문장을 그 목소리로 읽어볼 수 있습니다." />
-      {recordings.length > 0 && <section className="next-step-card" aria-label="다음 단계">
-        <div><span className="section-kicker">다음 단계 · 목소리 확인</span><h2>저장한 목소리로 동화 문장을 읽어볼까요?</h2><p>먼저 짧은 대본을 읽어 음성을 확인하고, 다음 단계에서 장면 그림과 이야기 자막을 맞춘 동화로 완성합니다.</p></div>
-        <Button variant="primary" size="lg" onClick={() => onNavigate('generate')}>동화 문장 읽어보기 <span aria-hidden="true">→</span></Button>
-      </section>}
-      <div className="workspace-grid">
+      <PageHeading title="먼저 내 목소리를 녹음해요" />
+      <div className="workspace-grid workspace-grid--recording">
         {token ? <Recorder token={token} onSaved={onSaved} /> : (
-          <Card className="recorder-card" title="새 녹음" description="로컬 앱을 연결하면 마이크 녹음과 PC 저장 기능을 사용할 수 있습니다.">
+          <Card className="recorder-card" title="새 녹음">
             <div className="empty-state"><p>위쪽의 로컬 앱 연결을 완료하면 마이크 권한 요청과 녹음 컨트롤이 활성화됩니다.</p></div>
           </Card>
         )}
-        <Card className="side-card" title="좋은 녹음을 위한 준비" description="처음에는 짧고 또렷한 문장으로 테스트해 보세요.">
-          <ul className="recording-tips">
-            <li><span>01</span><div><strong>조용한 공간</strong><p>배경 음악과 울림이 적은 곳을 선택하세요.</p></div></li>
-            <li><span>02</span><div><strong>일정한 거리</strong><p>마이크에서 15–20cm 정도 떨어져 읽으세요.</p></div></li>
-            <li><span>03</span><div><strong>편안한 속도</strong><p>문장 사이에 짧게 쉬며 자연스럽게 말하세요.</p></div></li>
-          </ul>
-          <Button variant="secondary" onClick={() => onNavigate('settings')}>PC 설치 안내 보기</Button>
-        </Card>
       </div>
+      {recordings.length > 0 && <div className="recording-next-step">
+        <Button variant="secondary" onClick={() => onNavigate('generate')}>저장한 목소리로 음성 만들기 <span aria-hidden="true">→</span></Button>
+      </div>}
     </div>
   )
 }
@@ -251,9 +242,9 @@ export function App() {
   }
 
   return (
-    <AppShell activeRoute={activeRoute} onNavigate={setActiveRoute} connectionState={connectionState}>
+    <AppShell activeRoute={activeRoute} onNavigate={setActiveRoute} connectionState={connectionState} onReconnect={reconnectRuntime}>
       <div className="page-stack app-page-stack">
-        <ConnectionStatus state={connectionState} onPair={connectRuntime} onReconnect={runtimeToken ? reconnectRuntime : undefined} />
+        {activeRoute !== 'record' && <ConnectionStatus state={connectionState} onPair={connectRuntime} onReconnect={runtimeToken ? reconnectRuntime : undefined} />}
         <CurrentPage route={activeRoute} onNavigate={setActiveRoute} token={runtimeToken} recordings={recordings} outputs={outputs} systemInfo={systemInfo} generationDraft={generationDraft} onGenerateStory={handleStoryGenerate} onRecordingSaved={handleRecordingSaved} onRecordingDeleted={handleRecordingDeleted} onOutputCreated={handleOutputCreated} onOutputDeleted={handleOutputDeleted} />
       </div>
     </AppShell>

@@ -108,10 +108,7 @@ a { color: inherit; }
 .model-setup-consent { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 15px; color: var(--color-secondary); font-size: var(--font-size-body); line-height: 1.55; }
 .model-setup-consent input { margin: 2px 0 0; }
 .setup-model-running { margin-top: 18px !important; padding: 14px; border-radius: var(--radius-card); color: var(--color-success-foreground) !important; background: var(--color-success-subtle); }
-.next-step-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; padding: 20px 23px; border: 1px solid var(--color-success); border-radius: var(--radius-card); background: var(--color-success-subtle); }
-.next-step-card h2 { margin: 6px 0 4px; color: var(--color-success-foreground); font-size: var(--font-size-section-title); letter-spacing: -.035em; }
-.next-step-card p { margin: 0; color: var(--color-secondary); font-size: var(--font-size-body); line-height: 1.6; }
-.next-step-card .ws-button { flex: 0 0 auto; }
+.recording-next-step { display: flex; justify-content: flex-end; margin-top: -8px; }
 .storybook-page { width: 100%; }
 .storybook-catalog { min-height: 0; }
 .storybook-catalog > div { max-width: none; margin: 0; padding: 0; }
@@ -159,7 +156,16 @@ a { color: inherit; }
 .pairing-form input:focus-visible, .connection-action:focus-visible, .pairing-cancel:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
 .pairing-error { flex-basis: 100%; color: var(--color-danger); font-size: var(--font-size-body); }
 .app-page-stack { gap: 17px; }
-.professional-recorder { display: grid; gap: 15px; padding-top: 8px; }
+.recorder-workspace { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); gap: 20px; padding-top: 6px; }
+.recorder-script-panel, .recorder-console { display: grid; align-content: start; gap: 12px; min-width: 0; }
+.recorder-panel-heading { display: flex; align-items: center; gap: 9px; }
+.recorder-panel-heading > span { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; color: var(--color-brand); background: var(--color-brand-subtle); font-size: 18px; }
+.recorder-panel-heading h2 { margin: 0; color: var(--color-foreground); font-size: var(--font-size-body); font-weight: 700; }
+.recorder-field-label, .recorder-device-control label { color: var(--color-secondary); font-size: 15px; font-weight: 650; }
+.recorder-script-panel textarea { min-height: 112px; padding: 12px; font-size: 16px; line-height: 1.6; }
+.recorder-script-panel .generation-select { min-height: 44px; font-size: 16px; }
+.script-length { display: flex; justify-content: flex-end; gap: 4px; margin-top: -8px; color: var(--color-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.recording-next-step .ws-button { min-height: 42px; font-size: 16px; }
 .audio-import-control { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-subtle); }
 .audio-import-details { border-top: 1px solid var(--color-border); padding-top: 12px; }
 .audio-import-details summary { color: var(--color-foreground); font-size: var(--font-size-body); font-weight: 600; cursor: pointer; }
@@ -168,21 +174,26 @@ a { color: inherit; }
 .audio-import-control input { max-width: 100%; color: var(--color-secondary); font-size: var(--font-size-body); }
 .audio-import-control small { color: var(--color-muted); font-size: var(--font-size-body); line-height: 1.5; }
 .recorder-controls-row, .recorder-action-row { display: flex; align-items: end; flex-wrap: wrap; gap: 9px; }
-.recorder-device-control { display: grid; flex: 1 1 260px; gap: 6px; }
-.recorder-device-control label { color: var(--color-secondary); font-size: var(--font-size-body); font-weight: 650; }
-.recorder-device-control select { min-height: 38px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-input); color: var(--color-foreground); background: var(--color-surface); font: inherit; font-size: var(--font-size-body); }
-.device-info { margin: -6px 0 0; color: var(--color-muted); font-size: var(--font-size-body); }
-.input-meter { overflow: hidden; height: 8px; border-radius: var(--radius-card); background: var(--color-border-subtle); }
+.recorder-device-control { display: grid; flex: 1 1 190px; gap: 6px; }
+.recorder-device-control select { min-height: 44px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-input); color: var(--color-foreground); background: var(--color-surface); font: inherit; font-size: 16px; }
+.recorder-controls-row > .ws-button { min-height: 44px; font-size: 16px; }
+.device-info { justify-self: end; margin: -7px 0 0; color: var(--color-muted); font-size: 14px; }
+.input-meter { overflow: hidden; height: 13px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-full); background: var(--color-surface-subtle); }
 .input-meter span { display: block; height: 100%; border-radius: inherit; background: var(--color-brand); transition: width 70ms linear; }
 .input-meter--hot span { background: var(--color-danger); }
-.recorder-step-label { margin: 0; color: var(--color-foreground); font-size: var(--font-size-body); font-weight: 650; }
-.recorder-live-state { display: flex; align-items: center; gap: 9px; color: var(--color-secondary); font-size: var(--font-size-body); }
-.recorder-live-state .recorder-time { margin-left: auto; color: var(--color-foreground); font-size: var(--font-size-page-title); }
-.recorder-live-state small { color: var(--color-muted); font-size: var(--font-size-body); }
+.recorder-live-state { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 7px 12px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-card); color: var(--color-secondary); background: var(--color-surface-subtle); font-size: 16px; }
+.recorder-live-state .recorder-time { margin-left: auto; color: var(--color-foreground); font-size: 27px; }
 .recording-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--color-muted); }
 .recording-indicator--active { background: var(--color-danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-danger) 13%, transparent); }
 .recorder-action-row { align-items: center; }
+.recorder-action-row .ws-button { min-height: 44px; font-size: 15px; }
+.recorder-action-row .recorder-start-button { min-height: 56px; font-size: 18px; }
+.recorder-start-button > span { margin-right: 5px; color: currentColor; font-size: 14px; }
 .recorder-action-row--secondary { justify-content: flex-end; padding-top: 3px; border-top: 1px solid var(--color-border-subtle); }
+.recording-cues { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; margin-top: 2px; }
+.recording-cues > span { display: grid; justify-items: center; gap: 4px; min-height: 69px; padding: 8px 4px; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-card); background: var(--color-surface-subtle); }
+.recording-cues i { color: var(--color-brand); font-size: 22px; font-style: normal; line-height: 1; }
+.recording-cues strong { color: var(--color-secondary); font-size: 14px; font-weight: 600; text-align: center; }
 .recording-preview { width: 100%; height: 42px; }
 .download-take { color: var(--color-brand); font-size: var(--font-size-body); font-weight: 600; text-decoration: none; }
 .download-take:hover { text-decoration: underline; }
@@ -312,6 +323,15 @@ a { color: inherit; }
   .topbar__actions > span:first-child { font-size: var(--font-size-body); }
   .help-button { width: 25px; height: 25px; }
   .page-content { padding: 17px 15px 34px; }
+  .recorder-workspace { grid-template-columns: minmax(0,1fr); gap: 19px; }
+  .recorder-script-panel, .recorder-console { gap: 9px; }
+  .recorder-script-panel textarea { min-height: 86px; }
+  .recorder-action-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 7px; }
+  .recorder-action-row .recorder-start-button { min-height: 52px; }
+  .recorder-action-row .ws-button { padding-inline: 10px; }
+  .recording-cues > span { min-height: 62px; }
+  .recording-next-step { justify-content: stretch; margin-top: -3px; }
+  .recording-next-step .ws-button { width: 100%; }
   .storybook-catalog > div > div:last-child { grid-template-columns: minmax(0, 1fr); gap: var(--windsoft-space-3); }
   .storybook-card { display: grid; grid-template-columns: 36% minmax(0,1fr); min-height: 130px; }
   .storybook-card img { width: 100%; height: 100%; min-height: 130px; aspect-ratio: auto; }
@@ -340,8 +360,6 @@ a { color: inherit; }
   .setup-current__card h2 { font-size: var(--font-size-section-title); }
   .setup-downloads { display: grid; gap: 9px; }
   .model-setup-meta { margin: 16px 0 12px; }
-  .next-step-card { align-items: stretch; flex-direction: column; gap: 13px; padding: 16px; }
-  .next-step-card h2 { font-size: var(--font-size-body); }
   .page-stack { gap: 15px; }
   .connection-banner { align-items: flex-start; padding: 11px; }
   .connection-banner__copy { display: grid; gap: 4px; }

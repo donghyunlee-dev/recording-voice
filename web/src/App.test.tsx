@@ -41,7 +41,10 @@ describe('App first-run flow', () => {
     expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
     expect(screen.getByRole('link', { name: '저장한 녹음' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '마이크 연결 및 확인' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '마이크 연결' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '로컬 앱 다시 연결' })).toBeVisible()
+    expect(screen.queryByText('내 PC와 안전하게 연결되었습니다')).not.toBeInTheDocument()
+    expect(screen.queryByText(/녹음한 목소리와 정확한 대본을 저장하면/)).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(6)
     expect(fetchMock.mock.calls.some(([, init]) => new Headers(init?.headers).get('Authorization') === 'Bearer memory-token')).toBe(true)
   })
@@ -55,7 +58,7 @@ describe('App first-run flow', () => {
 
     expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '마이크 연결 및 확인' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '마이크 연결' })).toBeVisible()
   })
 
   it('shows the settings guide from the ready recording workspace', async () => {
@@ -73,15 +76,16 @@ describe('App first-run flow', () => {
 
   it('guides a saved voice take to the text-to-speech screen', async () => {
     const user = userEvent.setup()
-    vi.stubGlobal('fetch', stubReadyRuntime('installed', [{
+    const fetchMock = stubReadyRuntime('installed', [{
       id: 'saved-take', transcript: '안녕하세요. 이것은 녹음 대본입니다.', created_at: '2026-11-03T00:00:00Z',
       duration_seconds: 4, sample_rate: 24_000, channels: 1, bytes: 192_044,
-    }]))
+    }])
+    vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
     await connectToRuntime(user)
-    await screen.findByRole('button', { name: '동화 문장 읽어보기' })
-    await user.click(screen.getByRole('button', { name: '동화 문장 읽어보기' }))
+    await screen.findByRole('button', { name: /저장한 목소리로 음성 만들기/ })
+    await user.click(screen.getByRole('button', { name: /저장한 목소리로 음성 만들기/ }))
 
     expect(await screen.findByRole('heading', { name: '동화 문장을 엄마 목소리로 읽어봐요' })).toBeVisible()
     expect(screen.getByLabelText('읽을 문장')).toBeVisible()
