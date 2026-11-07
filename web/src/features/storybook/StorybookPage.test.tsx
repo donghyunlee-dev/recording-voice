@@ -8,21 +8,41 @@ describe('StorybookPage', () => {
     render(<StorybookPage onGenerateSpeech={vi.fn()} />)
 
     expect(screen.getByRole('heading', { name: '동화책 미리보기' })).toBeVisible()
-    expect(screen.getByRole('button', { name: /백설공주/ })).toBeVisible()
-    expect(screen.getByRole('button', { name: /아기 돼지 삼형제/ })).toBeVisible()
-    expect(screen.getByRole('button', { name: /빨간 모자/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: '백설공주 선택' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '아기 돼지 삼형제 선택' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '빨간 모자 선택' })).toBeVisible()
+    expect(screen.queryByText('그림과 함께 듣는 동화')).not.toBeInTheDocument()
+    expect(screen.queryByText(/이야기를 고르고 장면을 넘겨보세요/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/그림 3장/)).not.toBeInTheDocument()
+    expect(screen.queryByText(storybooks[0].summary)).not.toBeInTheDocument()
     expect(screen.getAllByRole('img')).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: /선택$/ })).toHaveLength(3)
     for (const story of storybooks) {
       expect(story.scenes).toHaveLength(3)
       expect(storyScript(story).split('\n').filter(Boolean).length).toBeLessThan(20)
     }
   })
 
+  it('shows a visual loading and error state for story illustrations', () => {
+    render(<StorybookPage onGenerateSpeech={vi.fn()} />)
+
+    const image = screen.getByRole('img', { name: '백설공주 삽화 미리보기' })
+    const card = screen.getByRole('button', { name: '백설공주 선택' })
+    expect(card).toHaveAttribute('aria-busy', 'true')
+
+    fireEvent.load(image)
+    expect(card).not.toHaveAttribute('aria-busy', 'true')
+
+    fireEvent.error(image)
+    expect(screen.getByText('백설공주')).toBeVisible()
+    expect(card).toHaveClass('storybook-card--error')
+  })
+
   it('changes the illustration and sends the selected story text to voice generation', () => {
     const onGenerateSpeech = vi.fn()
     render(<StorybookPage onGenerateSpeech={onGenerateSpeech} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /빨간 모자/ }))
+    fireEvent.click(screen.getByRole('button', { name: '빨간 모자 선택' }))
     expect(screen.getByRole('img', { name: /빨간 모자 · 장면 1/ })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '다음 장면' }))
     expect(screen.getByRole('img', { name: /빨간 모자 · 장면 2/ })).toBeVisible()

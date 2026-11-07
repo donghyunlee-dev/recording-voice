@@ -13,15 +13,9 @@ export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
   if (!activeStory) {
     return <div className="page-stack storybook-page">
       <div className="page-heading">
-        <Typography variant="caption" className="section-kicker">그림과 함께 듣는 동화</Typography>
         <Typography variant="h1">동화책 미리보기</Typography>
-        <Typography variant="body-sm">이야기를 고르고 장면을 넘겨보세요. 준비된 대본을 저장한 목소리로 읽을 수 있습니다.</Typography>
       </div>
-      <ProductGrid className="storybook-catalog" items={storybooks} renderCard={(story) => <button className="storybook-card" type="button" key={story.id} onClick={() => { setActiveStory(story); setActiveScene(0) }}>
-          <img src={story.scenes[0].image} alt={`${story.title} 삽화 미리보기`} />
-          <span className="storybook-card__body"><strong>{story.title}</strong><span>{story.summary}</span><small>그림 3장 · 짧은 줄거리</small></span>
-          <span className="storybook-card__arrow" aria-hidden="true">→</span>
-        </button>} />
+      <ProductGrid className="storybook-catalog" items={storybooks} renderCard={(story) => <StorybookCard key={story.id} story={story} onSelect={() => { setActiveStory(story); setActiveScene(0) }} />} />
     </div>
   }
 
@@ -52,4 +46,21 @@ export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
       <Button variant="primary" size="lg" onClick={() => onGenerateSpeech(storyScript(activeStory))}>이 이야기로 음성 만들기</Button>
     </div>
   </div>
+}
+
+function StorybookCard({ story, onSelect }: { story: Storybook; onSelect: () => void }) {
+  const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState(false)
+
+  return <button className={failed ? 'storybook-card storybook-card--error' : 'storybook-card'} type="button" aria-label={`${story.title} 선택`} aria-busy={loading || undefined} onClick={onSelect}>
+    <span className={`storybook-card__art${loading ? ' storybook-card__art--loading' : ''}`}>
+      {failed ? <svg className="storybook-card__fallback" viewBox="0 0 120 90" aria-hidden="true">
+        <path d="M14 18c15-6 29-4 46 4v52c-17-8-31-10-46-4V18Zm92 0c-15-6-29-4-46 4v52c17-8 31-10 46-4V18Z" />
+        <path d="M60 22v52" />
+        <path d="M24 31c9-3 17-2 25 1m-25 9c9-3 17-2 25 1m22-10c8-3 16-4 25-1m-25 10c8-3 16-4 25-1" />
+      </svg> : <img src={story.scenes[0].image} alt={`${story.title} 삽화 미리보기`} onLoad={() => setLoading(false)} onError={() => { setLoading(false); setFailed(true) }} />}
+      {loading && <span className="storybook-card__skeleton" aria-hidden="true" />}
+    </span>
+    <span className="storybook-card__body"><strong>{story.title}</strong></span>
+  </button>
 }
