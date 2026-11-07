@@ -488,7 +488,7 @@ a { color: inherit; }
   .settings-status-tile { flex-direction: column-reverse; justify-content: center; min-height: 72px; gap: 6px; padding: 8px 4px; text-align: center; }
   .settings-status-tile strong { font-size: 12px; }
   .settings-status-icon { width: 26px; height: 26px; }
-  .settings-resource-grid { grid-template-columns: minmax(0,1fr); }
+  .settings-resource-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .settings-resource-tile { min-height: 74px; }
   .install-links { grid-template-columns: minmax(0,1fr); }
   .install-links a:first-child { grid-column: auto; }
