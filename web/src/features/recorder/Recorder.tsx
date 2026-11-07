@@ -262,7 +262,7 @@ export function Recorder({ token, onSaved }: RecorderProps) {
             {narrationPrompts.map((prompt) => <option value={prompt.id} key={prompt.id}>{prompt.title}</option>)}
           </select>
           <label className="recorder-field-label" htmlFor="recording-transcript">대본</label>
-          <Textarea id="recording-transcript" aria-label="읽을 대본" rows={3} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
+          <Textarea id="recording-transcript" aria-label="읽을 대본" rows={2} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
           <div className="script-length" aria-hidden="true"><span>{transcript.length}</span> / 5,000</div>
         </section>
 

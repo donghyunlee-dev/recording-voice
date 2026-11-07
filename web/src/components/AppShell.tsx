@@ -22,7 +22,7 @@ const primaryLinks: { route: AppRoute; label: string; icon: string }[] = [
 
 export function AppShell({ activeRoute, onNavigate, onReconnect, connectionState, children }: AppShellProps) {
   return (
-    <div className="app-shell">
+    <div className={`app-shell app-shell--${activeRoute}`}>
       <aside className="sidebar">
         <a className="brand-lockup" href="#record" onClick={(event) => { event.preventDefault(); onNavigate('record') }}>
           <span className="brand-mark" aria-hidden="true">
@@ -43,6 +43,8 @@ export function AppShell({ activeRoute, onNavigate, onReconnect, connectionState
               key={item.route}
               href={`#${item.route}`}
               className={`nav-link${activeRoute === item.route ? ' nav-link--active' : ''}`}
+              aria-label={item.label}
+              title={item.label}
               aria-current={activeRoute === item.route ? 'page' : undefined}
               onClick={(event) => {
                 event.preventDefault()

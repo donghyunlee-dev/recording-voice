@@ -323,13 +323,24 @@ a { color: inherit; }
   .topbar__actions > span:first-child { font-size: var(--font-size-body); }
   .help-button { width: 25px; height: 25px; }
   .page-content { padding: 17px 15px 34px; }
+  .app-shell--record .brand-lockup { padding-bottom: 5px; }
+  .app-shell--record .brand-copy small { display: none; }
+  .app-shell--record .primary-nav { flex-wrap: nowrap; overflow-x: auto; gap: 5px; padding-bottom: 6px; }
+  .app-shell--record .primary-nav .nav-link { flex: 0 0 40px; width: 40px; min-height: 36px; padding: 0; }
+  .app-shell--record .primary-nav .nav-link > span:nth-child(2) { display: none; }
+  .app-shell--record .primary-nav .nav-link__icon { display: block; font-size: 19px; }
+  .app-shell--record .topbar__context { display: none; }
+  .app-shell--record .topbar { height: 39px; justify-content: flex-end; }
+  .app-shell--record .page-content { padding-top: 10px; }
+  .app-shell--record .recorder-card > div:first-child { display: none; }
+  .app-shell--record .recorder-panel-heading { display: none; }
   .recorder-workspace { grid-template-columns: minmax(0,1fr); gap: 19px; }
   .recorder-script-panel, .recorder-console { gap: 9px; }
-  .recorder-script-panel textarea { min-height: 86px; }
+  .recorder-script-panel textarea { min-height: 64px; }
   .recorder-action-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 7px; }
   .recorder-action-row .recorder-start-button { min-height: 52px; }
   .recorder-action-row .ws-button { padding-inline: 10px; }
-  .recording-cues > span { min-height: 62px; }
+  .recording-cues { display: none; }
   .recording-next-step { justify-content: stretch; margin-top: -3px; }
   .recording-next-step .ws-button { width: 100%; }
   .storybook-catalog > div > div:last-child { grid-template-columns: minmax(0, 1fr); gap: var(--windsoft-space-3); }
