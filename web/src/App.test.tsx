@@ -70,8 +70,13 @@ describe('App first-run flow', () => {
     await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
     await user.click(screen.getByRole('link', { name: '설정 및 설치' }))
 
-    expect(screen.getByRole('link', { name: 'Windows 설치 프로그램 다운로드' })).toHaveAttribute('href', '/install/windows/VoiceStudioSetup.exe')
-    expect(screen.getByRole('link', { name: 'Windows 설치 안내' })).toHaveAttribute('href', '/install/windows-wsl.md')
+    expect(await screen.findByRole('heading', { name: '설정', level: 1 })).toBeVisible()
+    expect(screen.getByText('OS')).toBeVisible()
+    expect(await screen.findByRole('img', { name: '음성 모델 설치됨' })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: /설치 및 연결/ }))
+    expect(screen.getByRole('link', { name: 'VoiceStudioSetup.exe' })).toHaveAttribute('href', '/install/windows/VoiceStudioSetup.exe')
+    expect(screen.getByRole('link', { name: '설치 가이드' })).toHaveAttribute('href', '/install/windows-wsl.md')
+    expect(screen.getByRole('button', { name: '설정' })).toBeVisible()
   })
 
   it('guides a saved voice take to the text-to-speech screen', async () => {

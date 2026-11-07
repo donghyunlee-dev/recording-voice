@@ -2,7 +2,7 @@ import { Button, Card, SettingsPage as WindsoftSettingsPage, Typography } from '
 import { useEffect, useState } from 'react'
 import { AppShell, type AppRoute } from './components/AppShell'
 import { ConnectionStatus, type ConnectionState } from './components/ConnectionStatus'
-import { deleteRecording, getRecordingAudio, getRuntimeHealth, getRuntimeSystem, listOutputs, listRecordings, LocalRuntimeError, pairRuntime, type LocalOutput, type LocalRecording, type RuntimeSystem } from './api/localRuntime'
+import { deleteRecording, getRecordingAudio, getRuntimeHealth, getRuntimeSystem, listModels, listOutputs, listRecordings, LocalRuntimeError, pairRuntime, type LocalOutput, type LocalRecording, type RuntimeSystem } from './api/localRuntime'
 import { SetupScreen } from './components/Onboarding/SetupScreen'
 import { Recorder } from './features/recorder/Recorder'
 import { GenerationWorkspace } from './features/generation/GenerationWorkspace'
@@ -122,47 +122,81 @@ function ResultsPage({ onNavigate, token, outputs, onOutputDeleted }: { onNaviga
   )
 }
 
-function SettingsPage({ systemInfo }: { systemInfo: RuntimeSystem | null }) {
+function SettingsPage({ systemInfo, token }: { systemInfo: RuntimeSystem | null; token: string | null }) {
+  const [modelState, setModelState] = useState<'checking' | 'installed' | 'not_installed' | 'installing' | 'unknown'>('checking')
+
+  useEffect(() => {
+    let active = true
+    if (!token) {
+      setModelState('unknown')
+      return () => { active = false }
+    }
+    void listModels(token).then((models) => {
+      if (!active) return
+      const model = models.find((item) => item.id === 'qwen3-tts-0.6b-base')
+      setModelState(model?.status ?? 'not_installed')
+    }).catch(() => { if (active) setModelState('unknown') })
+    return () => { active = false }
+  }, [token])
+
+  const modelStatus = {
+    checking: { icon: '◌', label: '음성 모델 확인 중', className: 'settings-status--checking' },
+    installed: { icon: '✓', label: '음성 모델 설치됨', className: 'settings-status--success' },
+    installing: { icon: '↓', label: '음성 모델 설치 중', className: 'settings-status--checking' },
+    not_installed: { icon: '↓', label: '음성 모델 설치 필요', className: 'settings-status--warning' },
+    unknown: { icon: '!', label: '음성 모델 확인 필요', className: 'settings-status--warning' },
+  }[modelState]
+
   const sections = [
     {
-      id: 'install', label: '설치 및 연결', icon: '↓', content: <Card title="Windows 설치 안내" description="설치 프로그램이 이 PC에 로컬 앱을 준비하고 실행합니다. 음성 모델은 이 화면에서 별도로 내려받습니다.">
-        <div className="privacy-detail"><span aria-hidden="true">01</span><p>설치 프로그램을 실행한 뒤 이 페이지에서 로컬 앱 연결과 모델 다운로드를 완료합니다.</p></div>
+      id: 'install', label: '설치 및 연결', icon: '↓', content: <Card className="settings-install-card">
+        <div className="install-flow" aria-hidden="true">
+          <span>1</span><i /><span>2</span><i /><span>✓</span>
+        </div>
         <div className="install-links">
-          <a href="/install/windows/VoiceStudioSetup.exe" download>Windows 설치 프로그램 다운로드</a>
-          <a href="/install/windows-wsl.md" target="_blank" rel="noreferrer">Windows 설치 안내</a>
+          <a href="/install/windows/VoiceStudioSetup.exe" download>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span>VoiceStudioSetup.exe</span>
+          </a>
+          <a href="/install/windows-wsl.md" target="_blank" rel="noreferrer">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6m-6 4h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span>설치 가이드</span>
+          </a>
         </div>
       </Card>,
     },
     {
       id: 'computer', label: 'PC 환경', icon: '⌘', content: <div className="settings-section-content">
-        <Card title="PC 로컬 앱" description="모델을 실행하고 녹음 파일을 보관하는 작은 프로그램입니다.">
-          <div className="setting-row"><span className="setting-icon">01</span><div><strong>내 PC 앱</strong><p>음성 녹음과 생성을 담당하는 PC 앱입니다. 이 브라우저와 연결해 사용합니다.</p></div><span className="setting-state">{systemInfo ? '연결됨' : '연결 필요'}</span></div>
-          <div className="setting-row"><span className="setting-icon">02</span><div><strong>로컬 연결 권한</strong><p>웹페이지가 내 PC의 로컬 앱에 접근할 때 브라우저 권한을 요청합니다.</p></div><span className="setting-state">{systemInfo ? '허용됨' : '연결 후 확인'}</span></div>
-          <div className="setting-row"><span className="setting-icon">03</span><div><strong>음성 모델</strong><p>Qwen3-TTS 0.6B Base는 음성 생성 화면에서 확인하고 설치할 수 있습니다.</p></div><span className="setting-state">모델 페이지에서 확인</span></div>
-        </Card>
-        {systemInfo && <Card title="이 PC에서 확인한 실행 자원" description="로컬 런타임이 보고한 정보이며 별도 서버로 보내지 않습니다.">
-          <div className="resource-grid">
-            <div><span>운영체제</span><strong>{systemInfo.os} · {systemInfo.architecture}</strong></div>
-            <div><span>CPU 코어 수</span><strong>{systemInfo.cpu_logical_count ?? '확인 불가'} 코어</strong></div>
-            <div><span>총 메모리</span><strong>{systemInfo.memory_total_gib?.toFixed(1) ?? '확인 불가'} GiB</strong></div>
-            <div><span>현재 가용 메모리</span><strong>{systemInfo.memory_available_gib?.toFixed(1) ?? '확인 불가'} GiB</strong></div>
-            <div><span>모델 캐시 여유</span><strong>{systemInfo.model_cache_disk_free_gib.toFixed(1)} GiB</strong></div>
+        <div className="settings-status-grid">
+          <div className="settings-status-tile"><strong>PC 앱</strong><span className={`settings-status-icon ${systemInfo ? 'settings-status--success' : 'settings-status--warning'}`} role="img" aria-label={systemInfo ? 'PC 앱 연결됨' : 'PC 앱 연결 필요'}>{systemInfo ? '✓' : '!'}</span></div>
+          <div className="settings-status-tile"><strong>로컬 권한</strong><span className={`settings-status-icon ${systemInfo ? 'settings-status--success' : 'settings-status--warning'}`} role="img" aria-label={systemInfo ? '로컬 권한 허용됨' : '로컬 권한 확인 필요'}>{systemInfo ? '✓' : '!'}</span></div>
+          <div className="settings-status-tile"><strong>Qwen3-TTS</strong><span className={`settings-status-icon ${modelStatus.className}`} role="img" aria-label={modelStatus.label}>{modelStatus.icon}</span></div>
+        </div>
+        {systemInfo && <div className="settings-resource-grid" aria-label="이 PC 실행 자원">
+          <div className="settings-resource-tile"><span>OS</span><strong>{systemInfo.os} · {systemInfo.architecture}</strong></div>
+          <div className="settings-resource-tile"><span>CPU</span><strong>{systemInfo.cpu_logical_count ?? '—'} 코어</strong></div>
+          <div className="settings-resource-tile settings-resource-tile--memory">
+            <div><span>RAM</span><strong>{systemInfo.memory_available_gib?.toFixed(1) ?? '—'} / {systemInfo.memory_total_gib?.toFixed(1) ?? '—'} GiB</strong></div>
+            {systemInfo.memory_available_gib !== null && systemInfo.memory_total_gib !== null && <progress aria-label="가용 메모리" value={systemInfo.memory_available_gib} max={systemInfo.memory_total_gib || 1} />}
           </div>
-        </Card>}
+          <div className="settings-resource-tile"><span>모델 캐시</span><strong>{systemInfo.model_cache_disk_free_gib.toFixed(1)} GiB</strong></div>
+        </div>}
       </div>,
     },
     {
-      id: 'privacy', label: '개인정보와 저장', icon: '⌑', content: <Card title="내 PC에 저장" description="녹음, 대본, 생성 결과는 내 PC 안에 보관합니다.">
-        <div className="privacy-detail"><span aria-hidden="true">⌑</span><p>Vercel은 화면만 제공합니다. 녹음 파일, 대본, 생성 음성은 로컬 앱이 관리하고 외부 추론 API로 보내지 않습니다.</p></div>
-        <div className="storage-detail"><span>저장 위치</span><strong>로컬 앱 연결 후 표시</strong></div>
+      id: 'privacy', label: '개인정보와 저장', icon: '⌑', content: <Card title="내 PC에 저장">
+        <div className="local-processing-visual" role="img" aria-label="브라우저에서 PC 앱을 거쳐 이 PC에 음성 파일 저장">
+          <div><span className="local-processing-visual__node">▣</span><small>브라우저</small></div><i />
+          <div><span className="local-processing-visual__node local-processing-visual__wave">〰</span><small>PC 앱</small></div><i />
+          <div><span className="local-processing-visual__node">⌂</span><small>이 PC</small></div>
+        </div>
       </Card>,
     },
   ]
 
   return (
-    <div className="settings-page page-stack">
-      <PageHeading eyebrow="내 PC 환경" title="설정 및 설치" description="PC 앱 연결, 모델 준비 상태, 녹음 파일 저장 위치를 확인합니다." />
-      <WindsoftSettingsPage title="설정 항목" sections={sections} defaultSection="install" className="settings-template" />
+    <div className="settings-page">
+      <WindsoftSettingsPage title="설정" sections={sections} defaultSection={systemInfo ? 'computer' : 'install'} className="settings-template" />
     </div>
   )
 }
@@ -180,7 +214,7 @@ function CurrentPage({ route, onNavigate, token, recordings, outputs, systemInfo
     case 'results':
       return <ResultsPage onNavigate={onNavigate} token={token} outputs={outputs} onOutputDeleted={onOutputDeleted} />
     case 'settings':
-      return <SettingsPage systemInfo={systemInfo} />
+      return <SettingsPage systemInfo={systemInfo} token={token} />
   }
 }
 
