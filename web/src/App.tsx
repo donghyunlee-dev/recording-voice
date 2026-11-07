@@ -40,12 +40,11 @@ function RecordingPage({ onNavigate, token, recordings, onSaved }: { onNavigate:
 function VoicesPage({ onNavigate, token, recordings, onDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onDeleted: (id: string) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="저장한 녹음" title="저장한 녹음" description="녹음과 함께 저장한 대본을 다시 듣고, 음성 생성에 사용할 녹음을 확인합니다." />
+      <PageHeading title="저장한 녹음" />
       {!token || recordings.length === 0 ? (
         <Card className="empty-card"><div className="empty-state">
-          <span className="empty-state__icon" aria-hidden="true">◌</span>
+          <span className="empty-state__icon voice-empty-wave" aria-hidden="true">〰</span>
           <h2>{token ? '아직 저장된 음성이 없습니다' : '로컬 앱 연결이 필요합니다'}</h2>
-          <p>{token ? '녹음 스튜디오에서 목소리를 녹음하고 대본과 함께 저장하세요.' : '위쪽에서 로컬 앱을 연결한 뒤 저장된 녹음을 확인할 수 있습니다.'}</p>
           {token && <Button variant="primary" onClick={() => onNavigate('record')}>첫 음성 녹음하기</Button>}
         </div></Card>
       ) : recordings.map((recording) => (
@@ -71,18 +70,32 @@ function VoiceTake({ recording, token, onDeleted }: { recording: LocalRecording;
   }
 
   async function remove() {
+    if (!window.confirm('이 녹음을 삭제할까요?')) return
     await deleteRecording(token, recording.id)
     onDeleted(recording.id)
   }
 
   return (
-    <Card className="voice-take-card" title={`저장한 녹음 · ${new Date(recording.created_at).toLocaleString('ko-KR')}`} description={`${recording.duration_seconds.toFixed(1)}초 녹음`}>
+    <Card className="voice-take-card">
+      <div className="voice-take-meta">
+        <span className="voice-take-wave" aria-hidden="true">〰</span>
+        <time dateTime={recording.created_at}>{formatRecordingDate(recording.created_at)}</time>
+        <span className="voice-take-duration">{Math.round(recording.duration_seconds)}초</span>
+      </div>
       <p className="voice-take-transcript">{recording.transcript}</p>
-      {!audioUrl ? <Button variant="primary" onClick={() => void loadAudio()}>녹음 듣기</Button> : <audio controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
-      <Button variant="ghost" onClick={() => void remove()}>삭제</Button>
+      <div className="voice-take-actions">
+        {!audioUrl ? <Button variant="primary" onClick={() => void loadAudio()}><span aria-hidden="true">▶</span> 듣기</Button> : <audio controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
+        <Button className="voice-delete-button" variant="ghost" aria-label="녹음 삭제" title="녹음 삭제" onClick={() => void remove()}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 4v6m4-6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </Button>
+      </div>
       {error && <p role="alert" className="recorder-error">{error}</p>}
     </Card>
   )
+}
+
+function formatRecordingDate(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
 }
 
 function GenerationPage({ onNavigate, token, recordings, initialText, draftSource, onOutputCreated }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; initialText?: string; draftSource?: 'recording' | 'storybook'; onOutputCreated: (output: LocalOutput) => void }) {
@@ -244,7 +257,7 @@ export function App() {
   return (
     <AppShell activeRoute={activeRoute} onNavigate={setActiveRoute} connectionState={connectionState} onReconnect={reconnectRuntime}>
       <div className="page-stack app-page-stack">
-        {activeRoute !== 'record' && <ConnectionStatus state={connectionState} onPair={connectRuntime} onReconnect={runtimeToken ? reconnectRuntime : undefined} />}
+        {connectionState !== 'connected' && <ConnectionStatus state={connectionState} onPair={connectRuntime} onReconnect={runtimeToken ? reconnectRuntime : undefined} />}
         <CurrentPage route={activeRoute} onNavigate={setActiveRoute} token={runtimeToken} recordings={recordings} outputs={outputs} systemInfo={systemInfo} generationDraft={generationDraft} onGenerateStory={handleStoryGenerate} onRecordingSaved={handleRecordingSaved} onRecordingDeleted={handleRecordingDeleted} onOutputCreated={handleOutputCreated} onOutputDeleted={handleOutputDeleted} />
       </div>
     </AppShell>

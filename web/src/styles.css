@@ -55,6 +55,7 @@ a { color: inherit; }
 .topbar__eyebrow { color: var(--color-muted); font-size: var(--font-size-body); }
 .topbar__divider { color: var(--color-border); }
 .topbar__current { color: var(--color-foreground); font-size: var(--font-size-body); font-weight: 600; }
+.app-shell--voices .topbar__context { display: none; }
 .topbar__actions > span:first-child { font-size: var(--font-size-body); }
 .help-button { display: grid; place-items: center; width: 29px; height: 29px; padding: 0; border: 1px solid var(--color-border); border-radius: var(--radius-full); color: var(--color-muted); background: var(--color-surface); cursor: pointer; }
 .help-button span { font-size: var(--font-size-body); font-weight: 600; }
@@ -198,10 +199,19 @@ a { color: inherit; }
 .download-take:hover { text-decoration: underline; }
 .recorder-error, .pairing-error { margin: 0; color: var(--color-danger); font-size: var(--font-size-body); }
 .recorder-saved { margin: 0; color: var(--color-success); font-size: var(--font-size-body); }
-.voice-take-card { display: flex; flex-direction: column; gap: 10px; }
-.voice-take-transcript { margin: 0; color: var(--color-foreground); font-size: var(--font-size-body); line-height: 1.7; white-space: pre-wrap; }
-.voice-take-card audio { width: 100%; }
-.voice-take-card .ws-button-ghost { align-self: flex-end; }
+.voice-take-card { display: flex; flex-direction: column; }
+.voice-take-card > div { display: grid; gap: 14px; }
+.voice-take-meta { display: flex; align-items: center; gap: 10px; min-height: 44px; padding-bottom: 11px; border-bottom: 1px solid var(--color-border-subtle); }
+.voice-take-wave { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--color-brand); background: var(--color-brand-subtle); font-size: 23px; }
+.voice-take-meta time { color: var(--color-foreground); font-size: 16px; font-weight: 650; }
+.voice-take-duration { margin-left: auto; padding: 5px 10px; border-radius: var(--radius-full); color: var(--color-secondary); background: var(--color-surface-subtle); font-size: 14px; font-variant-numeric: tabular-nums; }
+.voice-take-transcript { margin: 0; color: var(--color-foreground); font-size: 18px; line-height: 1.7; white-space: pre-wrap; }
+.voice-take-actions { display: flex; align-items: center; gap: 9px; }
+.voice-take-actions > .ws-button { min-height: 46px; font-size: 16px; }
+.voice-take-actions audio { width: min(100%,620px); }
+.voice-delete-button { display: grid !important; place-items: center; width: 46px; padding: 0 !important; color: var(--color-danger) !important; }
+.voice-delete-button svg { width: 20px; height: 20px; }
+.voice-empty-wave { font-size: 31px; }
 .generation-workspace { display: grid; gap: 14px; }
 .generation-select { width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-input); color: var(--color-foreground); background: var(--color-surface); font: inherit; font-size: var(--font-size-body); }
 .generation-job { display: grid; gap: 4px; padding: 10px 12px; border-radius: var(--radius-card); color: var(--color-secondary); background: var(--color-surface-subtle); font-size: var(--font-size-body); }
@@ -346,6 +356,8 @@ a { color: inherit; }
   .recording-cues { display: none; }
   .recording-next-step { justify-content: stretch; margin-top: -3px; }
   .recording-next-step .ws-button { width: 100%; }
+  .voice-take-transcript { font-size: 16px; }
+  .voice-take-actions { align-items: stretch; }
   .storybook-catalog > div > div:last-child { grid-template-columns: minmax(0, 1fr); gap: var(--windsoft-space-3); }
   .storybook-card { display: grid; grid-template-columns: 36% minmax(0,1fr); min-height: 130px; }
   .storybook-card img { width: 100%; height: 100%; min-height: 130px; aspect-ratio: auto; }

@@ -85,6 +85,24 @@ describe('App first-run flow', () => {
 
     await connectToRuntime(user)
     await screen.findByRole('button', { name: /저장한 목소리로 음성 만들기/ })
+    await user.click(screen.getByRole('link', { name: '저장한 녹음' }))
+
+    expect(await screen.findByRole('heading', { name: '저장한 녹음', level: 1 })).toBeVisible()
+    expect(screen.getByText('안녕하세요. 이것은 녹음 대본입니다.')).toBeVisible()
+    expect(screen.getByText('4초')).toBeVisible()
+    expect(screen.getByRole('button', { name: '녹음 삭제' })).toBeVisible()
+    expect(screen.queryByText(/녹음과 함께 저장한 대본을 다시 듣고/)).not.toBeInTheDocument()
+    expect(screen.queryByText('내 PC와 안전하게 연결되었습니다')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '로컬 앱 다시 연결' })).toBeVisible()
+    expect(document.querySelector('time')).toHaveAttribute('dateTime', '2026-11-03T00:00:00Z')
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    await user.click(screen.getByRole('button', { name: '녹음 삭제' }))
+    expect(confirm).toHaveBeenCalled()
+    confirm.mockRestore()
+
+    await user.click(screen.getByRole('link', { name: '녹음 스튜디오' }))
+    await screen.findByRole('button', { name: /저장한 목소리로 음성 만들기/ })
     await user.click(screen.getByRole('button', { name: /저장한 목소리로 음성 만들기/ }))
 
     expect(await screen.findByRole('heading', { name: '동화 문장을 엄마 목소리로 읽어봐요' })).toBeVisible()

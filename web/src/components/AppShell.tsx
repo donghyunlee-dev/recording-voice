@@ -92,7 +92,7 @@ export function AppShell({ activeRoute, onNavigate, onReconnect, connectionState
           </div>
           <div className="topbar__actions">
             <StatusBadge status={connectionState === 'connected' ? 'success' : 'inactive'} label={connectionState === 'connected' ? '로컬 연결됨' : '로컬 연결 전'} />
-            {activeRoute === 'record' && connectionState === 'connected' && onReconnect && <button className="help-button reconnect-button" type="button" aria-label="로컬 앱 다시 연결" title="로컬 앱 다시 연결" onClick={onReconnect}>↻</button>}
+            {connectionState === 'connected' && onReconnect && <button className="help-button reconnect-button" type="button" aria-label="로컬 앱 다시 연결" title="로컬 앱 다시 연결" onClick={onReconnect}>↻</button>}
             <button className="help-button" type="button" aria-label="설치 및 도움말 보기" onClick={() => onNavigate('settings')}>
               <span aria-hidden="true">?</span>
             </button>
