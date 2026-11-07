@@ -51,6 +51,8 @@ describe('GenerationWorkspace', () => {
 
     const modelCard = await screen.findByRole('radio', { name: /Qwen3-TTS 0\.6B Base/ })
     await waitFor(() => expect(modelCard).toBeChecked())
+    expect(screen.getByRole('heading', { level: 2, name: '읽을 목소리' })).toBeVisible()
+    expect(screen.getByRole('heading', { level: 2, name: '음성 모델' })).toBeVisible()
     expect(screen.getByText('설치됨')).toBeVisible()
     expect(screen.queryAllByRole('combobox')).toHaveLength(0)
     expect(screen.getByRole('textbox', { name: '동화 대본' })).toHaveValue('엄마와 아이가 함께 읽는 동화 대본입니다.')
