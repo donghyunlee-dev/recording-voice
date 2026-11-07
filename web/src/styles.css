@@ -329,12 +329,19 @@ a { color: inherit; }
 .generation-form__submit { grid-area: submit; }
 .generation-form__model { display: grid; grid-area: model; gap: 14px; }
 .generation-form__submit .ws-button { width: 100%; min-height: 52px; }
+.generation-script-page { min-height: 210px; padding: 22px 24px !important; border-color: #e8ddca !important; border-radius: 18px !important; background: #fffaf1 !important; color: #302a23 !important; font-family: Georgia, 'Noto Serif KR', serif !important; font-size: 19px !important; line-height: 1.85 !important; word-break: keep-all; overflow-wrap: break-word; text-wrap: pretty; }
+.generation-no-voice { display: grid; min-height: 62px; place-items: center; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-card); color: var(--color-muted); background: var(--color-surface-subtle); font-size: 24px; }
+.generation-model-card-status { display: inline-flex; align-items: center; padding: 4px 7px; border-radius: var(--radius-full); color: var(--color-warning-foreground); background: var(--color-warning-subtle); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.generation-model-card-status--installed { color: var(--color-success); background: var(--color-success-subtle); }
+.generation-model-card-status--installing { color: var(--color-brand); background: var(--color-brand-subtle); }
 .generation-model-field { display: flex; align-items: center; gap: 9px; }
 .generation-model-field > div:first-child { flex: 1; min-width: 0; }
 .generation-model-field .generation-select { min-width: 0; }
 .generation-model-status { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border: 1px solid var(--color-success); border-radius: 50%; color: var(--color-success); background: var(--color-success-subtle); font-size: 17px; font-weight: 800; }
 .generation-model-status--not_installed { border-color: var(--color-warning); color: var(--color-warning-foreground); background: var(--color-warning-subtle); }
 .generation-model-status--installing { border-color: var(--color-brand); color: var(--color-brand); background: var(--color-brand-subtle); }
+.generation-form__voice .choice-card-group__options--grid, .generation-form__model .choice-card-group__options--grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); }
+.generation-form__voice .choice-card-group__options--rail .choice-card, .generation-form__model .choice-card-group__options--rail .choice-card { flex-basis: min(82%, 255px); }
 .generation-memory { display: grid; grid-template-columns: auto minmax(50px,1fr) auto; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-subtle); }
 .generation-memory__icon { color: var(--color-brand); font-size: 18px; }
 .generation-memory__bar { height: 8px; overflow: hidden; border-radius: var(--radius-full); background: var(--color-border); }

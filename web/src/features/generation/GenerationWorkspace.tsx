@@ -2,6 +2,7 @@ import { Button, Card, FormField, Textarea } from '@windsoft/ui'
 import { useEffect, useState } from 'react'
 import { cancelJob, createGeneration, getJob, installModel, listModels, type LocalModel, type LocalOutput, type LocalRecording, type RuntimeJob } from '../../api/localRuntime'
 import { AudioOutputCard } from '../results/AudioOutputCard'
+import { ChoiceCardGroup } from '../../components/ChoiceCardGroup'
 
 const baselineModel = 'qwen3-tts-0.6b-base'
 
@@ -57,6 +58,20 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
   const running = job !== null && !['completed', 'failed', 'cancelled'].includes(job.status)
   const model = models.find((item) => item.id === modelId)
   const installing = job?.kind === 'model_install' && job.status === 'downloading'
+  const recordingOptions = recordings.map((recording) => ({
+    value: recording.id,
+    title: new Date(recording.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' }),
+    detail: `${recording.duration_seconds.toFixed(0)}초 녹음`,
+    icon: <span aria-hidden="true">♫</span>,
+  }))
+  const modelOptions = models.map((item) => ({
+    value: item.id,
+    title: item.id === baselineModel ? 'Qwen3-TTS 0.6B Base' : item.id,
+    detail: item.language,
+    icon: <span aria-hidden="true">◉</span>,
+    status: <span className={`generation-model-card-status generation-model-card-status--${item.status}`}>{item.status === 'installed' ? '설치됨' : item.status === 'installing' ? '설치 중' : '설치 필요'}</span>,
+    disabled: checking,
+  }))
 
   async function installBaselineModel() {
     setError('')
@@ -92,16 +107,12 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
       <Card className="generation-card">
         <div className="generation-form">
           <div className="generation-form__voice">
-          <FormField label="읽을 목소리">
-            <select className="generation-select" value={recordingId} onChange={(event) => setRecordingId(event.target.value)}>
-              {recordings.length === 0 && <option value="">먼저 목소리를 녹음하고 저장해 주세요</option>}
-              {recordings.map((recording) => <option key={recording.id} value={recording.id}>{new Date(recording.created_at).toLocaleString('ko-KR')} · {recording.duration_seconds.toFixed(0)}초</option>)}
-            </select>
-          </FormField>
+            {recordings.length > 0 && <ChoiceCardGroup name="generation-voice" legend="읽을 목소리" options={recordingOptions} value={recordingId} onChange={setRecordingId} />}
+            {recordings.length === 0 && <FormField label="읽을 목소리"><div className="generation-no-voice" aria-label="저장된 목소리 없음">♫</div></FormField>}
           </div>
           <div className="generation-form__text">
-            <FormField label="읽을 문장">
-              <Textarea rows={4} maxLength={1_000} value={text} onChange={(event) => setText(event.target.value)} />
+            <FormField label="동화 대본">
+              <Textarea className="generation-script-page" rows={5} maxLength={1_000} value={text} onChange={(event) => setText(event.target.value)} />
             </FormField>
           </div>
           <div className="generation-form__submit">
@@ -110,17 +121,8 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
           </Button>
           </div>
           <div className="generation-form__model">
-            <div className="generation-model-field">
-              <FormField label="음성 모델">
-              <select className="generation-select" value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={checking}>
-                {models.map((model) => <option key={model.id} value={model.id}>{model.id === baselineModel ? 'Qwen3-TTS 0.6B Base' : model.id}</option>)}
-              </select>
-              </FormField>
-              {!checking && model && <span className={`generation-model-status generation-model-status--${model.status}`} role="status" aria-label={model.status === 'installed' ? '모델 설치됨' : model.status === 'installing' ? '모델 설치 중' : '모델 설치 필요'}>
-                <span aria-hidden="true">{model.status === 'installed' ? '✓' : model.status === 'installing' ? '◌' : '!'}</span>
-                <span className="sr-only">{model.status === 'installed' ? '모델 설치됨' : model.status === 'installing' ? '모델 설치 중' : '모델 설치 필요'}</span>
-              </span>}
-            </div>
+            {models.length > 0 && <ChoiceCardGroup name="generation-model" legend="음성 모델" options={modelOptions} value={modelId} onChange={setModelId} />}
+            {!checking && models.length === 0 && <p role="status" className="generation-installing">음성 모델을 불러오지 못했습니다.</p>}
           {model?.status === 'installed' && <div className="generation-memory" role="meter" aria-label="메모리 상태" aria-valuemin={0} aria-valuemax={Math.max(model.memory_available_gib ?? 0, model.memory_recommended_free_gib)} aria-valuenow={model.memory_available_gib ?? 0} aria-valuetext={`${model.memory_available_gib?.toFixed(1) ?? '확인 불가'} GiB 사용 가능, 권장 ${model.memory_recommended_free_gib.toFixed(1)} GiB`}>
             <span className="generation-memory__icon" aria-hidden="true">▤</span>
             <span className="generation-memory__bar"><span style={{ width: `${Math.min(100, ((model.memory_available_gib ?? 0) / model.memory_recommended_free_gib) * 100)}%` }} /></span>
