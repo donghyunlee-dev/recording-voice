@@ -201,7 +201,7 @@ a { color: inherit; }
 .recorder-panel-heading > span { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; color: var(--color-brand); background: var(--color-brand-subtle); font-size: 18px; }
 .recorder-panel-heading h2 { margin: 0; color: var(--color-foreground); font-size: var(--font-size-body); font-weight: 700; }
 .recorder-field-label, .recorder-device-control label { color: var(--color-secondary); font-size: 15px; font-weight: 650; }
-.recorder-script-panel textarea { min-height: 240px; padding: 23px 25px; border: 1px solid #e8ddca; border-radius: 18px; background: #fffaf1; color: #302a23; font-size: 20px; line-height: 1.8; text-wrap: pretty; }
+.recorder-script-panel textarea { min-height: 240px; padding: 23px 25px; border: 1px solid #e8ddca; border-radius: 18px; background: #fffaf1; color: #302a23; font-size: 20px; line-height: 1.8; word-break: keep-all; overflow-wrap: break-word; text-wrap: pretty; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .recorder-script-panel .generation-select { min-height: 44px; font-size: 16px; }
 .recording-next-step .ws-button { min-height: 42px; font-size: 16px; }
