@@ -105,8 +105,17 @@ describe('App first-run flow', () => {
     await screen.findByRole('button', { name: /저장한 목소리로 음성 만들기/ })
     await user.click(screen.getByRole('button', { name: /저장한 목소리로 음성 만들기/ }))
 
-    expect(await screen.findByRole('heading', { name: '동화 문장을 엄마 목소리로 읽어봐요' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '음성 생성' })).toBeVisible()
+    expect(screen.getByLabelText('읽을 목소리')).toBeVisible()
+    expect(screen.getByLabelText('음성 모델')).toBeVisible()
     expect(screen.getByLabelText('읽을 문장')).toBeVisible()
+    expect(screen.getByRole('button', { name: '내 목소리로 생성' })).toBeVisible()
+    expect(screen.getByRole('status', { name: '모델 설치됨' })).toBeVisible()
+    expect(screen.getByRole('meter', { name: '메모리 상태' })).toHaveAttribute('aria-valuenow', '5.8')
+    expect(screen.queryByText('2단계 · 내 목소리로 읽어보기')).not.toBeInTheDocument()
+    expect(screen.queryByText(/짧은 음성 결과를 만듭니다/)).not.toBeInTheDocument()
+    expect(screen.queryByText('생성 설정')).not.toBeInTheDocument()
+    expect(screen.queryByText(/다른 녹음으로도 결과를 비교할 수 있어요/)).not.toBeInTheDocument()
   })
 
   it('opens a preset story and preloads its script into voice generation', async () => {
@@ -120,7 +129,7 @@ describe('App first-run flow', () => {
     await user.click(screen.getByRole('button', { name: /빨간 모자/ }))
     await user.click(screen.getByRole('button', { name: '이 이야기로 음성 만들기' }))
 
-    expect(await screen.findByRole('heading', { name: '동화 대본으로 엄마 목소리를 만들어요' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '음성 생성' })).toBeVisible()
     const scriptField = screen.getByLabelText('읽을 문장')
     expect((scriptField as HTMLTextAreaElement).value).toContain('빨간 모자는 아픈 할머니께 드릴 바구니를 들고 숲길을 걸었어요.')
     expect(screen.getByRole('button', { name: '이 동화 대본으로 음성 만들기' })).toBeVisible()

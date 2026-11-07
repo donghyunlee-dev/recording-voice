@@ -21,7 +21,7 @@ describe('recording save handoff', () => {
     await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
     await user.click(screen.getByRole('button', { name: '테스트 녹음 저장' }))
 
-    expect(await screen.findByRole('heading', { name: '저장한 대본으로 바로 음성을 만들어요' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: '음성 생성' })).toBeVisible()
     expect(screen.getByLabelText('읽을 문장')).toHaveValue('엄마 목소리로 다시 읽을 저장 대본입니다.')
     expect(screen.getByRole('button', { name: '저장된 텍스트로 음성 만들기' })).toBeVisible()
   })

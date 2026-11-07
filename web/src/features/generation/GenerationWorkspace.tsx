@@ -89,28 +89,49 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
 
   return (
     <div className="generation-workspace">
-      <Card title="생성 설정" description="저장한 녹음 한 개와 한국어 문장을 골라 내 PC의 CPU 모델로 생성합니다.">
+      <Card className="generation-card">
         <div className="generation-form">
-          <FormField label="읽을 목소리" hint="저장한 녹음 하나를 골라 목소리를 정합니다. 다른 녹음으로도 결과를 비교할 수 있어요.">
+          <div className="generation-form__voice">
+          <FormField label="읽을 목소리">
             <select className="generation-select" value={recordingId} onChange={(event) => setRecordingId(event.target.value)}>
               {recordings.length === 0 && <option value="">먼저 목소리를 녹음하고 저장해 주세요</option>}
-              {recordings.map((recording) => <option key={recording.id} value={recording.id}>{new Date(recording.created_at).toLocaleString('ko-KR')} · {recording.duration_seconds.toFixed(1)}초 · {recording.transcript.slice(0, 34)}</option>)}
+              {recordings.map((recording) => <option key={recording.id} value={recording.id}>{new Date(recording.created_at).toLocaleString('ko-KR')} · {recording.duration_seconds.toFixed(0)}초</option>)}
             </select>
           </FormField>
-          <FormField label="음성 모델" hint="모델 체크포인트와 음성 입력은 PC 안에서만 처리합니다.">
-            <select className="generation-select" value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={checking}>
-              {models.map((model) => <option key={model.id} value={model.id}>{model.id === baselineModel ? 'Qwen3-TTS 0.6B Base' : model.id} · {model.status === 'installed' ? '설치됨' : '설치 필요'}</option>)}
-            </select>
-          </FormField>
-          <FormField label="읽을 문장" hint={`${text.trim().length}/1,000자 · 첫 테스트는 40–70자의 짧은 문장을 권장합니다.`}>
-            <Textarea rows={4} maxLength={1_000} value={text} onChange={(event) => setText(event.target.value)} />
-          </FormField>
+          </div>
+          <div className="generation-form__text">
+            <FormField label="읽을 문장">
+              <Textarea rows={4} maxLength={1_000} value={text} onChange={(event) => setText(event.target.value)} />
+            </FormField>
+          </div>
+          <div className="generation-form__submit">
           <Button variant="primary" size="lg" onClick={() => void generate()} disabled={!modelReady || !recordingId || !text.trim() || checking || running}>
             {running ? '생성 중…' : draftSource === 'recording' ? '저장된 텍스트로 음성 만들기' : draftSource === 'storybook' ? '이 동화 대본으로 음성 만들기' : '내 목소리로 생성'}
           </Button>
+          </div>
+          <div className="generation-form__model">
+            <div className="generation-model-field">
+              <FormField label="음성 모델">
+              <select className="generation-select" value={modelId} onChange={(event) => setModelId(event.target.value)} disabled={checking}>
+                {models.map((model) => <option key={model.id} value={model.id}>{model.id === baselineModel ? 'Qwen3-TTS 0.6B Base' : model.id}</option>)}
+              </select>
+              </FormField>
+              {!checking && model && <span className={`generation-model-status generation-model-status--${model.status}`} role="status" aria-label={model.status === 'installed' ? '모델 설치됨' : model.status === 'installing' ? '모델 설치 중' : '모델 설치 필요'}>
+                <span aria-hidden="true">{model.status === 'installed' ? '✓' : model.status === 'installing' ? '◌' : '!'}</span>
+                <span className="sr-only">{model.status === 'installed' ? '모델 설치됨' : model.status === 'installing' ? '모델 설치 중' : '모델 설치 필요'}</span>
+              </span>}
+            </div>
+          {model?.status === 'installed' && <div className="generation-memory" role="meter" aria-label="메모리 상태" aria-valuemin={0} aria-valuemax={Math.max(model.memory_available_gib ?? 0, model.memory_recommended_free_gib)} aria-valuenow={model.memory_available_gib ?? 0} aria-valuetext={`${model.memory_available_gib?.toFixed(1) ?? '확인 불가'} GiB 사용 가능, 권장 ${model.memory_recommended_free_gib.toFixed(1)} GiB`}>
+            <span className="generation-memory__icon" aria-hidden="true">▤</span>
+            <span className="generation-memory__bar"><span style={{ width: `${Math.min(100, ((model.memory_available_gib ?? 0) / model.memory_recommended_free_gib) * 100)}%` }} /></span>
+            <output>{model.memory_available_gib?.toFixed(1) ?? '—'} / {model.memory_recommended_free_gib.toFixed(1)} GiB</output>
+          </div>}
+          </div>
           {recordings.length > 0 && <Button variant="secondary" onClick={() => onNavigate('record')} disabled={running}>다른 대본으로 한 번 더 녹음하기</Button>}
           {recordings.length === 0 && <div className="generation-needs-recording"><p>대본은 준비됐어요. 내 목소리를 먼저 저장하면 이 화면으로 돌아와 바로 생성할 수 있습니다.</p><Button variant="secondary" onClick={() => onNavigate('record')}>내 목소리 녹음하기</Button></div>}
           {!checking && model?.status === 'not_installed' && (
+            <details className="model-install-disclosure">
+              <summary>모델 설치가 필요해요</summary>
             <section className="model-install-card" aria-label="Qwen 모델 설치">
               <strong>Qwen3-TTS 0.6B Base 설치</strong>
               <p>공개 저장소에서 약 2.52 GB를 내려받습니다. 이 PC 모델 캐시에 {model.disk_free_gib.toFixed(1)} GiB 여유가 있습니다. 설치 파일은 Hugging Face 캐시에 보관됩니다.</p>
@@ -119,9 +140,9 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
               <Button variant="secondary" onClick={() => void installBaselineModel()} disabled={!acceptLicense || model.disk_free_gib < 8 || running}>이 PC에 모델 설치</Button>
               {model.disk_free_gib < 8 && <p className="recorder-error">설치 전에 모델 캐시 디스크에 8 GiB 이상 여유 공간을 확보해 주세요.</p>}
             </section>
+            </details>
           )}
-          {model?.status === 'installed' && <p className="device-info">현재 가용 RAM {model.memory_available_gib?.toFixed(1) ?? '확인 불가'} GiB · 이 환경의 최소 권장 여유 RAM {model.memory_recommended_free_gib.toFixed(1)} GiB</p>}
-          {model?.status === 'installing' && <p>모델 다운로드가 이미 진행 중입니다.</p>}
+          {model?.status === 'installing' && <p role="status" className="generation-installing">◌ 모델 다운로드 중</p>}
           {installing && <div className="model-download-progress"><span>{job.progress_percent === null || job.progress_percent === undefined ? '다운로드 중' : `${job.progress_percent}%`}</span><progress max="100" value={job.progress_percent ?? undefined} /><Button variant="secondary" onClick={() => void cancelInstallation()}>다운로드 취소</Button></div>}
           {error && <p role="alert" className="recorder-error">{error}</p>}
           {job && <div className="generation-job" role="status" aria-live="polite"><strong>{jobStatus(job.status)}</strong>{job.status === 'failed' && job.error_type && <span>오류 유형: {job.error_type}</span>}</div>}

@@ -101,7 +101,7 @@ function formatRecordingDate(value: string): string {
 function GenerationPage({ onNavigate, token, recordings, initialText, draftSource, onOutputCreated }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; initialText?: string; draftSource?: 'recording' | 'storybook'; onOutputCreated: (output: LocalOutput) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="2단계 · 내 목소리로 읽어보기" title={draftSource === 'recording' ? '저장한 대본으로 바로 음성을 만들어요' : draftSource === 'storybook' ? '동화 대본으로 엄마 목소리를 만들어요' : '동화 문장을 엄마 목소리로 읽어봐요'} description={draftSource === 'recording' ? '방금 저장한 녹음 대본이 입력되어 있어요. 저장된 목소리를 선택해 바로 음성을 만들 수 있습니다.' : draftSource === 'storybook' ? '선택한 동화의 짧은 대본이 입력되어 있어요. 저장된 목소리를 선택해 음성을 만들 수 있습니다.' : '동화 대본을 입력해 저장한 목소리로 들어보세요. 이 단계에서는 짧은 음성 결과를 만듭니다.'} />
+      <PageHeading title="음성 생성" />
       {token ? <GenerationWorkspace token={token} recordings={recordings} initialText={initialText} draftSource={draftSource} onOutputCreated={onOutputCreated} onNavigate={() => onNavigate('record')} /> : <Card title="로컬 앱 연결 필요" description="위쪽에서 PC 로컬 앱을 연결하면 설치된 모델과 참조 녹음이 표시됩니다." />}
     </div>
   )
