@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   font-family: var(--font-sans);
   color: var(--color-foreground);
   background: var(--color-background);
@@ -50,7 +51,7 @@ a { color: inherit; }
 .sidebar-footer span { font-weight: 500; letter-spacing: .02em; }
 
 .app-main { min-width: 0; }
-.topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--color-border-subtle); background: color-mix(in srgb, var(--color-surface) 78%, transparent); }
+.topbar { height: 68px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--color-border-subtle); background: var(--color-surface); }
 .topbar__context, .topbar__actions { display: flex; align-items: center; gap: 12px; }
 .topbar__eyebrow { color: var(--color-muted); font-size: var(--font-size-body); }
 .topbar__divider { color: var(--color-border); }
@@ -402,6 +403,7 @@ a { color: inherit; }
   .primary-nav .nav-link__icon { display: none; }
   .app-main { width: 100%; }
   .topbar { height: 48px; padding-inline: 17px; }
+  .app-shell:not(.app-shell--record) .topbar__context { display: none; }
   .topbar__eyebrow, .topbar__divider { display: none; }
   .topbar__current { font-size: var(--font-size-body); }
   .topbar__actions { gap: 7px; }
