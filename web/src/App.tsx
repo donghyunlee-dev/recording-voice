@@ -110,13 +110,12 @@ function GenerationPage({ onNavigate, token, recordings, initialText, draftSourc
 function ResultsPage({ onNavigate, token, outputs, onOutputDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; outputs: LocalOutput[]; onOutputDeleted: (id: string) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="내 PC에 저장된 파일" title="생성 결과" description="완성된 이야기를 다시 듣고 WAV 파일로 저장하거나, 필요 없는 결과를 정리합니다." />
-      {token && outputs.length > 0 ? outputs.map((output) => <AudioOutputCard key={output.id} token={token} output={output} onDeleted={onOutputDeleted} />) : <Card className="empty-card">
+      <PageHeading title="생성 결과" />
+      {token && outputs.length > 0 ? <div className="audio-output-list">{outputs.map((output) => <AudioOutputCard key={output.id} token={token} output={output} onDeleted={onOutputDeleted} />)}</div> : <Card className="empty-card audio-output-empty">
         <div className="empty-state">
-          <span className="empty-state__icon" aria-hidden="true">▤</span>
+          <span className="empty-state__icon audio-output-empty-wave" aria-hidden="true">〰</span>
           <h2>아직 생성된 오디오가 없습니다</h2>
-          <p>첫 번째 생성이 끝나면 모델, 소요 시간, 평가 메모를 여기서 확인할 수 있습니다.</p>
-          <Button variant="primary" onClick={() => onNavigate('generate')}>음성 생성 준비</Button>
+          <Button variant="primary" onClick={() => onNavigate('generate')}>음성 생성</Button>
         </div>
       </Card>}
     </div>

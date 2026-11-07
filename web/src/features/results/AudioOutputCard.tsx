@@ -29,6 +29,7 @@ export function AudioOutputCard({ token, output, onDeleted }: AudioOutputCardPro
   }
 
   async function removeOutput() {
+    if (!window.confirm('이 생성 결과를 삭제할까요?')) return
     setDeleting(true)
     try {
       await deleteOutput(token, output.id)
@@ -41,17 +42,41 @@ export function AudioOutputCard({ token, output, onDeleted }: AudioOutputCardPro
   }
 
   return (
-    <Card className="voice-take-card" title={`생성 결과 · ${new Date(output.created_at).toLocaleString('ko-KR')}`} description={`${output.duration_seconds.toFixed(1)}초 · ${output.sample_rate.toLocaleString()} Hz · 생성 ${output.generation_seconds.toFixed(1)}초`}>
+    <Card className="audio-output-card">
+      <div className="audio-output-toolbar">
+        <div className="audio-output-meta">
+          <span className="audio-output-wave" aria-hidden="true">〰</span>
+          <time dateTime={output.created_at}>{formatOutputDate(output.created_at)}</time>
+          <span className="voice-take-duration">{output.duration_seconds.toFixed(1)}초</span>
+        </div>
+        <div className="audio-output-actions">
+          {!audioUrl && <Button className="audio-output-play" variant="primary" aria-label="생성된 음성 듣기" title="생성된 음성 듣기" onClick={() => void loadAudio()}>
+            <span aria-hidden="true">▶</span>
+          </Button>}
+          {onDeleted && <Button className="audio-output-delete" variant="ghost" disabled={deleting} aria-label="결과 삭제" title={deleting ? '삭제 중' : '결과 삭제'} onClick={() => void removeOutput()}>
+            {deleting ? <span aria-hidden="true">…</span> : <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 4v6m4-6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+          </Button>}
+        </div>
+      </div>
       <p className="voice-take-transcript">{output.text}</p>
-      {!audioUrl ? <Button variant="primary" onClick={() => void loadAudio()}>내 PC에서 결과 재생</Button> : (
-        <>
-          <audio controls src={audioUrl} aria-label="생성된 음성 재생" />
-          <a className="download-take" href={audioUrl} download="voice-generated.wav">WAV 다운로드</a>
-        </>
-      )}
-      <p className="output-model-meta">음성 모델 Qwen3-TTS 0.6B Base · 생성 {output.generation_seconds.toFixed(1)}초 · 모델 준비 {output.model_load_seconds.toFixed(1)}초</p>
-      {onDeleted && <Button variant="ghost" disabled={deleting} onClick={() => void removeOutput()}>{deleting ? '삭제 중…' : '결과 삭제'}</Button>}
+      {audioUrl && <audio className="audio-output-player" controls src={audioUrl} aria-label="생성된 음성 재생" />}
+      <details className="audio-output-details" aria-label="파일 정보">
+        <summary aria-label="파일 정보" title="파일 정보"><span aria-hidden="true">ⓘ</span></summary>
+        <div className="audio-output-detail-list">
+          <span>Qwen3-TTS 0.6B Base</span>
+          <span>{output.sample_rate.toLocaleString()} Hz</span>
+          <span>생성 {output.generation_seconds.toFixed(1)}초</span>
+          <span>모델 준비 {output.model_load_seconds.toFixed(1)}초</span>
+          {audioUrl && <a className="audio-output-download" href={audioUrl} download="voice-generated.wav" aria-label="WAV 다운로드" title="WAV 다운로드">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </a>}
+        </div>
+      </details>
       {error && <p role="alert" className="recorder-error">{error}</p>}
     </Card>
   )
+}
+
+function formatOutputDate(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
 }
