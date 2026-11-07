@@ -1,5 +1,6 @@
 import { Button, Card, Textarea } from '@windsoft/ui'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { ChoiceCardGroup } from '../../components/ChoiceCardGroup'
 import { saveRecording, type LocalRecording } from '../../api/localRuntime'
 import { convertRecordingToWav, importAudioFile } from './wav'
 
@@ -11,9 +12,9 @@ interface RecorderProps {
 type RecordState = 'idle' | 'recording' | 'paused' | 'converting' | 'ready' | 'saving' | 'saved'
 
 const narrationPrompts = [
-  { id: 'snow-white', title: '백설공주 · 숲속의 새 친구들', text: '깊은 숲에서 길을 잃은 백설공주는 작은 오두막을 발견했어요. 오두막에는 일곱 난쟁이가 살고 있었고, 백설공주는 새 친구들을 만났지요.' },
-  { id: 'three-pigs', title: '아기 돼지 삼형제 · 튼튼한 벽돌집', text: '셋째 돼지는 벽돌을 하나씩 쌓아 튼튼한 집을 만들었어요. 늑대가 아무리 바람을 불어도 집은 끄떡없었답니다.' },
-  { id: 'red-riding-hood', title: '빨간 모자 · 숲길을 걸으며', text: '빨간 모자는 할머니께 드릴 바구니를 들고 숲길을 걸었어요. 나뭇잎 사이로 따뜻한 햇살이 반짝였지요.' },
+  { id: 'snow-white', title: '백설공주', detail: '숲속의 새 친구들', text: '깊은 숲에서 길을 잃은 백설공주는 작은 오두막을 발견했어요. 오두막에는 일곱 난쟁이가 살고 있었고, 백설공주는 새 친구들을 만났지요.' },
+  { id: 'three-pigs', title: '아기 돼지 삼형제', detail: '튼튼한 벽돌집', text: '셋째 돼지는 벽돌을 하나씩 쌓아 튼튼한 집을 만들었어요. 늑대가 아무리 바람을 불어도 집은 끄떡없었답니다.' },
+  { id: 'red-riding-hood', title: '빨간 모자', detail: '숲길을 걸으며', text: '빨간 모자는 할머니께 드릴 바구니를 들고 숲길을 걸었어요. 나뭇잎 사이로 따뜻한 햇살이 반짝였지요.' },
 ]
 
 export function Recorder({ token, onSaved }: RecorderProps) {
@@ -247,39 +248,49 @@ export function Recorder({ token, onSaved }: RecorderProps) {
   }
 
   const recording = recordState === 'recording' || recordState === 'paused'
+  const promptChoicesLocked = recording || recordState === 'saving' || recordState === 'converting' || countdown !== null
+  const deviceChoicesLocked = promptChoicesLocked
+  const deviceOptions = [
+    { value: '', title: '기본 마이크', detail: 'Windows 기본 입력', icon: '◉' },
+    ...devices.map((device, index) => ({
+      value: device.deviceId,
+      title: device.label || `마이크 ${index + 1}`,
+      detail: selectedDevice === device.deviceId ? '선택됨' : undefined,
+      icon: '◉',
+    })),
+  ]
 
   return (
     <Card className="recorder-card" title="내 목소리 녹음">
       <div className="recorder-workspace">
         <section className="recorder-script-panel" aria-label="녹음 대본">
           <div className="recorder-panel-heading"><span aria-hidden="true">▤</span><h2>읽을 대본</h2></div>
-          <select className="generation-select" aria-label="동화 문장 선택" value={selectedPrompt} onChange={(event) => {
-            const prompt = narrationPrompts.find((item) => item.id === event.target.value)
-            setSelectedPrompt(event.target.value)
-            if (prompt) setTranscript(prompt.text)
-          }} disabled={recording || recordState === 'saving'}>
-            <option value="">동화 문장 선택</option>
-            {narrationPrompts.map((prompt) => <option value={prompt.id} key={prompt.id}>{prompt.title}</option>)}
-          </select>
-          <label className="recorder-field-label" htmlFor="recording-transcript">대본</label>
-          <Textarea id="recording-transcript" aria-label="읽을 대본" rows={2} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
+          <ChoiceCardGroup
+            name="story-prompt"
+            legend="동화 문장 선택"
+            options={narrationPrompts.map((prompt) => ({ value: prompt.id, title: prompt.title, detail: prompt.detail, icon: '📖', disabled: promptChoicesLocked }))}
+            value={selectedPrompt}
+            onChange={(promptId) => {
+              const prompt = narrationPrompts.find((item) => item.id === promptId)
+              setSelectedPrompt(promptId)
+              if (prompt) setTranscript(prompt.text)
+            }}
+          />
+          {/* Keep the textarea label available to assistive technology while the heading carries the visual hierarchy. */}
+          <label className="visually-hidden" htmlFor="recording-transcript">읽을 대본</label>
+          <Textarea id="recording-transcript" className="story-script-editor" aria-label="읽을 대본" rows={5} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
         </section>
 
         <section className="recorder-console" aria-label="녹음 조작">
           <div className="recorder-panel-heading"><span aria-hidden="true">◉</span><h2>마이크</h2></div>
-          <div className="recorder-controls-row">
-            <div className="recorder-device-control">
-              <label htmlFor="recording-device">입력 장치</label>
-              <select
-                id="recording-device"
-                value={selectedDevice}
-                onChange={(event) => { setSelectedDevice(event.target.value); if (stream) void connectMicrophone(event.target.value) }}
-                disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}
-              >
-                <option value="">기본 마이크</option>
-                {devices.map((device, index) => <option key={device.deviceId || index} value={device.deviceId}>{device.label || `마이크 ${index + 1}`}</option>)}
-              </select>
-            </div>
+          <div className="recorder-controls-row recorder-device-cards">
+            <ChoiceCardGroup
+              name="recording-device"
+              legend="입력 장치"
+              options={deviceOptions.map((option) => ({ ...option, disabled: deviceChoicesLocked }))}
+              value={selectedDevice}
+              onChange={(deviceId) => { setSelectedDevice(deviceId); if (stream) void connectMicrophone(deviceId) }}
+            />
             <Button variant={stream ? 'secondary' : 'primary'} onClick={() => void connectMicrophone()} disabled={recording || countdown !== null || recordState === 'converting' || recordState === 'saving'}>
               {stream ? '마이크 다시 연결' : '마이크 연결'}
             </Button>
