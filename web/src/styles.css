@@ -332,9 +332,12 @@ a { color: inherit; }
   .app-shell--record .topbar__context { display: none; }
   .app-shell--record .topbar { height: 39px; justify-content: flex-end; }
   .app-shell--record .page-content { padding-top: 10px; }
+  .app-shell--record .app-page-stack { gap: 0; }
+  .app-shell--record .page-content > .page-stack { gap: 8px; }
+  .app-shell--record .page-heading { padding-block: 0; }
   .app-shell--record .recorder-card > div:first-child { display: none; }
   .app-shell--record .recorder-panel-heading { display: none; }
-  .recorder-workspace { grid-template-columns: minmax(0,1fr); gap: 19px; }
+  .recorder-workspace { grid-template-columns: minmax(0,1fr); gap: 10px; }
   .recorder-script-panel, .recorder-console { gap: 9px; }
   .recorder-script-panel textarea { min-height: 64px; }
   .recorder-action-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 7px; }
