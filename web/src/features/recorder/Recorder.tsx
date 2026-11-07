@@ -278,7 +278,7 @@ export function Recorder({ token, onSaved }: RecorderProps) {
           />
           {/* Keep the textarea label available to assistive technology while the heading carries the visual hierarchy. */}
           <label className="visually-hidden" htmlFor="recording-transcript">읽을 대본</label>
-          <Textarea id="recording-transcript" className="story-script-editor" aria-label="읽을 대본" rows={5} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다." />
+          <Textarea id="recording-transcript" className="story-script-editor" aria-label="읽을 대본" rows={5} maxLength={5_000} value={transcript} onChange={(event) => setTranscript(event.target.value)} />
         </section>
 
         <section className="recorder-console" aria-label="녹음 조작">
