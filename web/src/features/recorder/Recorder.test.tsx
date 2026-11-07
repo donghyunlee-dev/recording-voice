@@ -12,6 +12,7 @@ describe('Recorder narration prompts', () => {
 
     expect(screen.getByLabelText('읽을 대본')).toHaveValue('깊은 숲에서 길을 잃은 백설공주는 작은 오두막을 발견했어요. 오두막에는 일곱 난쟁이가 살고 있었고, 백설공주는 새 친구들을 만났지요.')
     expect(screen.getByLabelText('읽을 대본')).not.toHaveAttribute('placeholder')
+    expect(screen.queryByText('내 목소리 녹음')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '마이크 연결' })).toBeVisible()
     expect(screen.getByRole('button', { name: '녹음 시작' })).toBeVisible()
     expect(screen.queryByText(/자동 전사는 아직 지원하지 않아/)).not.toBeInTheDocument()

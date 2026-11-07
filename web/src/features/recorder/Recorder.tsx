@@ -261,7 +261,7 @@ export function Recorder({ token, onSaved }: RecorderProps) {
   ]
 
   return (
-    <Card className="recorder-card" title="내 목소리 녹음">
+    <Card className="recorder-card">
       <div className="recorder-workspace">
         <section className="recorder-script-panel" aria-label="녹음 대본">
           <div className="recorder-panel-heading"><span aria-hidden="true">▤</span><h2>읽을 대본</h2></div>
