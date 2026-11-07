@@ -67,7 +67,7 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
   const modelOptions = models.map((item) => ({
     value: item.id,
     title: item.id === baselineModel ? 'Qwen3-TTS 0.6B Base' : item.id,
-    detail: item.language,
+    detail: item.language === 'Korean' ? '한국어' : item.language,
     icon: <span aria-hidden="true">◉</span>,
     status: <span className={`generation-model-card-status generation-model-card-status--${item.status}`}>{item.status === 'installed' ? '설치됨' : item.status === 'installing' ? '설치 중' : '설치 필요'}</span>,
     disabled: checking,
