@@ -164,7 +164,6 @@ a { color: inherit; }
 .recorder-field-label, .recorder-device-control label { color: var(--color-secondary); font-size: 15px; font-weight: 650; }
 .recorder-script-panel textarea { min-height: 112px; padding: 12px; font-size: 16px; line-height: 1.6; }
 .recorder-script-panel .generation-select { min-height: 44px; font-size: 16px; }
-.script-length { display: flex; justify-content: flex-end; gap: 4px; margin-top: -8px; color: var(--color-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .recording-next-step .ws-button { min-height: 42px; font-size: 16px; }
 .audio-import-control { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface-subtle); }
 .audio-import-details { border-top: 1px solid var(--color-border); padding-top: 12px; }
