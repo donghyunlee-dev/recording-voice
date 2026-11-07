@@ -17,8 +17,6 @@ describe('recording save handoff', () => {
     vi.stubGlobal('fetch', readyRuntimeFetch())
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: '설치하기' }))
-    await user.click(screen.getByRole('button', { name: '설치했어요, PC 앱 찾기' }))
     await user.click(await screen.findByRole('button', { name: '이 PC에 연결' }))
     await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
     await user.click(screen.getByRole('button', { name: '테스트 녹음 저장' }))

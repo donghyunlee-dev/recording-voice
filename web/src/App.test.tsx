@@ -6,31 +6,27 @@ import { App } from './App'
 describe('App first-run flow', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows only the PC app install action before setup begins', () => {
+  it('shows the detected runtime state and keeps recording hidden until pairing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('runtime unavailable')))
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: 'PC 앱을 설치해요' })).toBeVisible()
-    expect(screen.getByText(/Windows 10\/11 PC에서/)).toBeVisible()
-    expect(screen.getByRole('button', { name: '설치하기' })).toBeVisible()
-    expect(screen.queryByText('./scripts/install-linux.sh')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'PC 앱을 찾지 못했어요' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '연결 다시 확인' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '설치 안내' })).toBeVisible()
     expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '이 PC에 모델 설치' })).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '녹음 스튜디오' })).not.toBeInTheDocument()
   })
 
-  it('offers a Windows installer and detects its backend before connecting', async () => {
+  it('connects directly when the runtime is already detected', async () => {
     const user = userEvent.setup()
     vi.stubGlobal('fetch', stubReadyRuntime('installed'))
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: '설치하기' }))
-    expect(screen.getByRole('link', { name: 'Windows 설치 프로그램 다운로드' })).toHaveAttribute('href', '/install/windows/VoiceStudioSetup.exe')
-    expect(screen.getByRole('link', { name: 'Windows 설치 안내' })).toHaveAttribute('href', '/install/windows-wsl.md')
-    expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '설치했어요, PC 앱 찾기' }))
     expect(await screen.findByRole('button', { name: '이 PC에 연결' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '이 PC에 연결' }))
+    expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
     expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
   })
 
@@ -46,21 +42,20 @@ describe('App first-run flow', () => {
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
     expect(screen.getByRole('link', { name: '저장한 녹음' })).toBeVisible()
     expect(screen.getByRole('button', { name: '마이크 연결 및 확인' })).toBeVisible()
-    expect(fetchMock).toHaveBeenCalledTimes(7)
-    expect(new Headers(fetchMock.mock.calls[3][1].headers).get('Authorization')).toBe('Bearer memory-token')
+    expect(fetchMock).toHaveBeenCalledTimes(6)
+    expect(fetchMock.mock.calls.some(([, init]) => new Headers(init?.headers).get('Authorization') === 'Bearer memory-token')).toBe(true)
   })
 
-  it('keeps navigation and recording hidden when the local model still needs setup', async () => {
+  it('keeps recording available when the model still needs setup', async () => {
     const user = userEvent.setup()
     vi.stubGlobal('fetch', stubReadyRuntime('not_installed'))
     render(<App />)
 
     await connectToRuntime(user)
 
-    expect(await screen.findByRole('heading', { name: 'Qwen 음성 모델을 준비해요' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '이 PC에 모델 설치' })).toBeDisabled()
-    expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '마이크 연결 및 확인' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
+    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '마이크 연결 및 확인' })).toBeVisible()
   })
 
   it('shows the settings guide from the ready recording workspace', async () => {
@@ -131,7 +126,5 @@ function stubReadyRuntime(modelStatus: 'installed' | 'not_installed', recordings
 }
 
 async function connectToRuntime(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: '설치하기' }))
-  await user.click(screen.getByRole('button', { name: '설치했어요, PC 앱 찾기' }))
   await user.click(await screen.findByRole('button', { name: '이 PC에 연결' }))
 }

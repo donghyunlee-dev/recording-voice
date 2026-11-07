@@ -7,6 +7,8 @@ interface SetupScreenProps {
 }
 
 export function SetupScreen({ onPair }: SetupScreenProps) {
+  const [stage, setStage] = useState<SetupStage>('checking')
+
   return (
     <main className="setup-screen">
       <header className="setup-screen__brand">
@@ -15,28 +17,39 @@ export function SetupScreen({ onPair }: SetupScreenProps) {
             <path d="M6 18v-4m5 9V9m5 15V7m5 17v-9m5 5v-4" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
           </svg>
         </span>
-        <div><strong>보이스 스튜디오</strong><span>PC 앱 연결</span></div>
+        <div><strong>보이스 스튜디오</strong></div>
       </header>
 
       <div className="setup-screen__content">
-        <div className="setup-screen__intro">
-          <Typography variant="caption" className="section-kicker">로컬 앱</Typography>
-          <Typography variant="h1">PC 앱에 연결해요</Typography>
-          <Typography variant="body-sm">실행 중인 PC 앱을 먼저 확인합니다.</Typography>
-        </div>
+        {stage !== 'install' && <div className="setup-screen__intro">
+          <Typography variant="h1">{stageHeading[stage]}</Typography>
+        </div>}
 
-        <RuntimeSetupStep onPair={onPair} />
-
-        <p className="setup-screen__privacy">녹음, 대본, 생성 결과는 내 PC에 저장됩니다.</p>
+        <RuntimeSetupStep onPair={onPair} onStageChange={setStage} />
       </div>
     </main>
   )
 }
 
-function RuntimeSetupStep({ onPair }: SetupScreenProps) {
-  const [stage, setStage] = useState<'checking' | 'unavailable' | 'install' | 'detect' | 'ready'>('checking')
-  const [checking, setChecking] = useState(false)
+type SetupStage = 'checking' | 'unavailable' | 'install' | 'detect' | 'ready' | 'pairing'
+
+const stageHeading: Record<Exclude<SetupStage, 'install'>, string> = {
+  checking: 'PC 앱을 확인하고 있어요',
+  unavailable: 'PC 앱을 찾지 못했어요',
+  detect: 'PC 앱을 확인하고 있어요',
+  ready: 'PC 앱을 찾았어요',
+  pairing: 'PC 앱을 연결하고 있어요',
+}
+
+interface RuntimeSetupStepProps extends SetupScreenProps {
+  onStageChange: (stage: SetupStage) => void
+}
+
+function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
+  const [stage, setStage] = useState<SetupStage>('checking')
   const [error, setError] = useState('')
+
+  useEffect(() => onStageChange(stage), [onStageChange, stage])
 
   useEffect(() => {
     let active = true
@@ -106,8 +119,8 @@ function RuntimeSetupStep({ onPair }: SetupScreenProps) {
   if (stage === 'checking') {
     return (
       <section className="setup-current" aria-label="PC 앱 확인 중">
-        <Card className="setup-current__card" role="status">
-          <h2>실행 중인 PC 앱을 찾고 있어요</h2>
+        <Card className="setup-current__card setup-current__card--center" role="status" aria-busy="true">
+          <span className="setup-state-indicator setup-state-indicator--pending" aria-hidden="true"><span /></span>
           <progress aria-label="PC 앱 확인 중" />
         </Card>
       </section>
@@ -115,14 +128,13 @@ function RuntimeSetupStep({ onPair }: SetupScreenProps) {
   }
 
   async function connectDetectedRuntime() {
-    setChecking(true)
     setError('')
+    setStage('pairing')
     try {
       await onPair()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'PC 앱에 연결하지 못했습니다. 설치 상태를 확인해 주세요.')
-    } finally {
-      setChecking(false)
+      setStage('ready')
     }
   }
 
@@ -137,13 +149,11 @@ function RuntimeSetupStep({ onPair }: SetupScreenProps) {
         {
           label: '앱 설치',
           content: <div className="setup-wizard-step">
-            <Typography variant="h3">Windows 설치 프로그램을 실행해요</Typography>
-            <Typography variant="body-sm">설치 파일을 내려받아 열고 안내에 따라 설치를 마쳐 주세요. 설치가 끝나면 PC 앱이 자동으로 실행됩니다.</Typography>
+            <span className="setup-state-indicator" aria-label="Windows 앱 설치" role="img">↓</span>
             <div className="setup-downloads">
               <a href="/install/windows/VoiceStudioSetup.exe" download>Windows 설치 프로그램 다운로드</a>
               <a href="/install/windows-wsl.md" target="_blank" rel="noreferrer">Windows 설치 안내</a>
             </div>
-            <p className="setup-origin-note">브라우저 보안상 내려받은 설치 파일은 직접 열어야 합니다.</p>
           </div>,
         },
       ]}
@@ -152,10 +162,9 @@ function RuntimeSetupStep({ onPair }: SetupScreenProps) {
 
   if (stage === 'detect') {
     return (
-      <section className="setup-current" aria-labelledby="runtime-setup-title">
+      <section className="setup-current" aria-label="PC 앱 확인 중">
         <Card className="setup-current__card">
-          <h2 id="runtime-setup-title">PC 앱을 확인하고 있어요</h2>
-          <p role="status">설치 프로그램이 끝나면 연결할 수 있습니다.</p>
+          <span className="setup-state-indicator setup-state-indicator--pending" aria-hidden="true"><span /></span>
           <progress aria-label="PC 앱 확인 중" />
           {error && <p role="alert" className="recorder-error">{error}</p>}
           <Button variant="secondary" onClick={() => void findRuntime()}>다시 확인</Button>
@@ -164,26 +173,33 @@ function RuntimeSetupStep({ onPair }: SetupScreenProps) {
     )
   }
 
+  if (stage === 'pairing') {
+    return (
+      <section className="setup-current" aria-label="PC 앱 연결 중">
+        <Card className="setup-current__card setup-current__card--center" role="status" aria-busy="true">
+          <span className="setup-state-indicator setup-state-indicator--pending" aria-hidden="true"><span /></span>
+          <progress aria-label="PC 앱 연결 중" />
+        </Card>
+      </section>
+    )
+  }
+
   if (stage === 'ready') {
     return (
-      <section className="setup-current" aria-labelledby="runtime-setup-title">
+      <section className="setup-current" aria-label="PC 앱 연결">
         <Card className="setup-current__card">
-          <h2 id="runtime-setup-title">PC 앱을 찾았어요</h2>
-          <p role="status">이 PC의 로컬 앱이 실행 중입니다.</p>
+          <span className="setup-state-indicator setup-state-indicator--ready" aria-label="PC 앱 실행 중" role="img">✓</span>
           {error && <p role="alert" className="recorder-error">{error}</p>}
-          <Button variant="primary" size="lg" onClick={() => void connectDetectedRuntime()} disabled={checking}>
-            {checking ? '연결 중…' : '이 PC에 연결'}
-          </Button>
+          <Button variant="primary" size="lg" onClick={() => void connectDetectedRuntime()}>이 PC에 연결</Button>
         </Card>
       </section>
     )
   }
 
   return (
-    <section className="setup-current" aria-labelledby="runtime-setup-title">
+    <section className="setup-current" aria-label="PC 앱 연결">
       <Card className="setup-current__card">
-        <h2 id="runtime-setup-title">PC 앱을 찾지 못했어요</h2>
-        <p role="status">연결을 다시 확인하거나 설치 안내를 열어 주세요.</p>
+        <span className="setup-state-indicator setup-state-indicator--unavailable" aria-label="PC 앱을 찾지 못함" role="img">!</span>
         {error && <p role="alert" className="recorder-error">{error}</p>}
         <div className="setup-current__actions">
           <Button variant="primary" size="lg" onClick={() => void findRuntime()}>연결 다시 확인</Button>
