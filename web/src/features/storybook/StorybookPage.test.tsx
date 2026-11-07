@@ -52,4 +52,19 @@ describe('StorybookPage', () => {
     const script = onGenerateSpeech.mock.calls[0][0]
     expect(script.split('\n').filter(Boolean)).toHaveLength(6)
   })
+
+  it('keeps narration below the illustration and exposes visual scene progress', () => {
+    render(<StorybookPage onGenerateSpeech={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '백설공주 선택' }))
+
+    const illustration = screen.getByRole('img', { name: /백설공주 · 장면 1/ })
+    const narration = screen.getByText(/깊은 숲에서 길을 잃은 백설공주/)
+    expect(illustration.compareDocumentPosition(narration) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText(/1 \/ 3 장면/)).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: '장면 진행' })).toHaveAttribute('aria-valuenow', '1')
+    expect(screen.getByRole('button', { name: '이전 장면' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '다음 장면' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '이 이야기로 음성 만들기' })).toBeVisible()
+    expect(screen.getByText('ⓘ')).toBeVisible()
+  })
 })

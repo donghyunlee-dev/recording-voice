@@ -24,27 +24,30 @@ export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
   return <div className="page-stack storybook-page">
     <div className="storybook-toolbar">
       <Button variant="secondary" onClick={() => setActiveStory(null)}>← 동화 목록</Button>
-      <span>{activeStory.title} <small>{activeScene + 1} / {activeStory.scenes.length} 장면</small></span>
+      <span>{activeStory.title}</span>
     </div>
     <Card className="storybook-viewer-card">
       <figure className="storybook-viewer">
-        <img src={scene.image} alt={`${activeStory.title} · 장면 ${activeScene + 1}: ${scene.imageAlt}`} />
+        <div className="storybook-viewer__art">
+          <img src={scene.image} alt={`${activeStory.title} · 장면 ${activeScene + 1}: ${scene.imageAlt}`} />
+          <Button className="storybook-viewer__nav storybook-viewer__nav--previous" variant="secondary" aria-label="이전 장면" onClick={() => setActiveScene((current) => Math.max(0, current - 1))} disabled={activeScene === 0}>‹</Button>
+          <Button className="storybook-viewer__nav storybook-viewer__nav--next" variant="secondary" aria-label="다음 장면" onClick={() => setActiveScene((current) => Math.min(activeStory.scenes.length - 1, current + 1))} disabled={activeScene === activeStory.scenes.length - 1}>›</Button>
+        </div>
         <figcaption className="storybook-subtitle">
           {scene.narration.map((line) => <p key={line}>{line}</p>)}
         </figcaption>
       </figure>
-      <div className="storybook-controls">
-        <Button variant="secondary" onClick={() => setActiveScene((current) => Math.max(0, current - 1))} disabled={activeScene === 0}>이전 장면</Button>
-        <div className="storybook-scene-dots" aria-label="장면 선택">
-          {activeStory.scenes.map((item, index) => <button key={item.title} type="button" className={index === activeScene ? 'storybook-scene-dot storybook-scene-dot--active' : 'storybook-scene-dot'} aria-label={`${index + 1}장면 ${item.title}`} aria-current={index === activeScene ? 'step' : undefined} onClick={() => setActiveScene(index)} />)}
+      <div className="storybook-footer">
+        <div className="storybook-progress" role="progressbar" aria-label="장면 진행" aria-valuemin={1} aria-valuemax={activeStory.scenes.length} aria-valuenow={activeScene + 1}>
+          <span style={{ width: `${((activeScene + 1) / activeStory.scenes.length) * 100}%` }} />
         </div>
-        <Button variant="secondary" onClick={() => setActiveScene((current) => Math.min(activeStory.scenes.length - 1, current + 1))} disabled={activeScene === activeStory.scenes.length - 1}>다음 장면</Button>
+        <details className="storybook-source">
+          <summary aria-label="그림 출처">ⓘ</summary>
+          <a href={scene.imageSource} target="_blank" rel="noreferrer">Wikimedia Commons</a>
+        </details>
+        <Button variant="primary" size="lg" onClick={() => onGenerateSpeech(storyScript(activeStory))}>이 이야기로 음성 만들기</Button>
       </div>
     </Card>
-    <div className="storybook-footer">
-      <a href={scene.imageSource} target="_blank" rel="noreferrer">그림 출처: Wikimedia Commons · 공개 도메인 삽화</a>
-      <Button variant="primary" size="lg" onClick={() => onGenerateSpeech(storyScript(activeStory))}>이 이야기로 음성 만들기</Button>
-    </div>
   </div>
 }
 
