@@ -529,9 +529,10 @@ a { color: inherit; }
   .connection-banner__copy strong { font-size: var(--font-size-body); }
   .connection-banner__copy p { font-size: var(--font-size-body); line-height: 1.5; }
   .workspace-grid, .workspace-grid--generation, .settings-grid { grid-template-columns: minmax(0,1fr); }
-  .settings-template > div > div:last-child { flex-direction: column; align-items: stretch; }
-  .settings-template nav { width: 100%; }
-  .settings-template nav ul { display: flex; overflow-x: auto; }
+  .settings-template > div > div:last-child { min-width: 0; flex-direction: column; align-items: stretch; }
+  .settings-template nav { width: 100%; min-width: 0; max-width: 100%; overflow: hidden; }
+  .settings-template nav ul { display: flex; width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .settings-template nav ul::-webkit-scrollbar { display: none; }
   .settings-template nav li { flex: 0 0 auto; }
   .settings-template nav button { white-space: nowrap; }
   .settings-template > div { padding: 0; }
