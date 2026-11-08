@@ -8,6 +8,8 @@ describe('Recorder narration prompts', () => {
     const user = userEvent.setup()
     render(<Recorder token="local-token" onSaved={vi.fn()} />)
 
+    expect(screen.getByRole('radio', { name: /백설공주/ })).toBeChecked()
+    expect(screen.getByLabelText('읽을 대본')).toHaveValue('깊은 숲에서 길을 잃은 백설공주는 작은 오두막을 발견했어요. 오두막에는 일곱 난쟁이가 살고 있었고, 백설공주는 새 친구들을 만났지요.')
     await user.click(screen.getByRole('radio', { name: /백설공주/ }))
 
     expect(screen.getByLabelText('읽을 대본')).toHaveValue('깊은 숲에서 길을 잃은 백설공주는 작은 오두막을 발견했어요. 오두막에는 일곱 난쟁이가 살고 있었고, 백설공주는 새 친구들을 만났지요.')
