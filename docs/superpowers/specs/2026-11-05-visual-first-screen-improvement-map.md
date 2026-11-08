@@ -86,6 +86,14 @@
 - Production 배포 `dpl_8uv9LqBPzwFtWDzeruen7T7oozgD`의 커밋 `e3bdc5fa77af44d1cb50dbee7836725b29a04655`가 `READY`임을 확인했다. Windows Chrome 320×844 Device Mode(625×912 캡처, 125% 배율)에서 표지와 백설공주 첫 장면의 새 이미지를 보았다. 장면 2는 접근성 트리에서 실제 이미지와 대체 텍스트가 로드된 것을 확인했다. 아홉 개 배포 이미지 URL은 모두 HTTP 200이며 바이트 크기가 저장 파일과 일치했다.
 - 캡처는 Windows Temp의 `rv-kawaii-catalog-320.png`, `rv-kawaii-snowwhite-01-320.png`, `rv-kawaii-snowwhite-02-320.png`다. 이미지 파일 아홉 개를 모두 직접 시각 검토해 위협적인 표정/어두운 장면이 없고 스타일이 일관됨을 확인했다. 동화 선택/장면 화면 전체 폭 검토는 Task 7 수용 점검에 계속 포함한다.
 
+## RV-01–RV-09 Task 7 최종 Production 수용 점검 (2026-11-08)
+
+- 마지막 코드 변경은 화면 제목, 활성 메뉴, 브랜드명이 같은 위치 안내를 반복하던 breadcrumb와 장식용 `LOCAL VOICE WORKSPACE` 문구를 제거했다. 왼쪽 홈 로고/이름, 현재 활성 메뉴와 H1이 각각 브랜드·위치·페이지 목적을 전달한다. 연결 상태와 개인정보 안내는 별도 의미가 있어 유지했다.
+- 마지막 Production 배포 `dpl_ApiPdrmqtkM5kRivomvu4seZywNm`은 `READY`; SHA `b22db3e852d530d16d3dc3b7ddad1b65b74672ef`다. 1920×1020 Windows Chrome 캡처(화면 캡처 1920×1020, 125% 배율)는 `rv-task7-final-wide.png`(자동 연결 후 녹음 화면), `rv-task7-final-wide-story.png`(세 작품 표지), `rv-task7-final-wide-story-scene.png`(펼친 책)이다. breadcrumb/장식 문구가 없어졌고, 녹음 입력과 마이크 콘솔은 좌우 작업면, 동화는 그림/대본 좌우 페이지로 유지된다.
+- Production Windows Chrome에서 추가로 본 폭은 320, 375, 390, 650, 1024 CSS px다. 320에서 녹음/동화 카드와 책 페이지, 375·390에서 동화 카드와 2줄 내비게이션, 650에서 녹음·저장 녹음·동화 장면·생성·결과·설정, 1024에서 사이드바와 3열 표지를 확인했다. 각 카드가 뷰포트 안에서 쌓이거나 줄을 바꾸며 수평 잘림은 없다. 현 단계의 캡처는 Windows Temp의 `rv07-final-320-record.png`, `rv-kawaii-catalog-320.png`, `rv-task7-375-story.png`, `rv-task7-390-story.png`, `rv-task7-650-record.png`, `rv-task7-650-voices.png`, `rv-task7-650-generation.png`, `rv-task7-650-results.png`, `rv-task7-650-settings.png`, `rv-task7-650-story.png`, `rv-task7-1024-story-catalog.png`다.
+- 동일한 최종 폭을 모든 상태에서 별도 캡처하지는 않았으므로 이전 RV별 배포 검증은 위의 화면 ID 기록을 함께 사용한다. 특히 연결 전/오류 흐름과 설정 탭은 기존 기록의 넓은/좁은 실측을 유지한다. 최신 변경은 공통 상단 중복 표기를 제거한 것이며 이 화면 상태의 이동이나 설치/연결 동작은 바꾸지 않았다.
+- 실제 최종 콘텐츠에서 한국어 문장 끝이 한 단어만 남는 줄, 이미지와 본문 겹침, 잘린 카드·탭은 발견하지 못했다. 스크롤이 있는 페이지는 전체 내용을 세로로 읽을 수 있다. 핵심 제목/작품명/대본/오류·보안 안내와 접근성 이름을 유지했다. `npm test -- --run` 44/44, `npm run build`, `git diff --check`가 통과했다. 마이크 녹음, 음성 생성/재생/다운로드, 저장 항목 삭제는 수행하지 않았다.
+
 ## RV-07 음성 생성 1차 수정 결과
 
 - 단계 문구, 긴 페이지 설명, 카드 제목/설명, 필드 도움말을 제거했다. 읽을 목소리/문장/생성 버튼을 한 작업 카드 안에 배치하고, 데스크톱은 문장 입력 약 60%와 목소리/모델 약 40% 좌우 구성, 모바일은 목소리 → 문장 → 생성 버튼으로 쌓았다. 모델 설치 여부는 체크 시각으로, 메모리는 게이지로 나타낸다.
