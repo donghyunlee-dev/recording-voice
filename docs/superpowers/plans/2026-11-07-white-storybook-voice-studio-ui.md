@@ -122,14 +122,16 @@
 - Consumes: Existing story cards, scene image/narration/source data, and `storyScript`.
 - Produces: A warm story-choice cover and an open-book scene view that keeps narration readable and actions secondary.
 
-- [ ] Add test `renders story choices as picture-book covers without summary copy` and update existing title/card assertions.
-- [ ] Use a restrained parent-and-child-reading illustration as a small welcome motif; keep each story’s own illustration and title as the choice. Do not add explanatory paragraphs.
-- [ ] On desktop, lay the scene illustration and narration as two facing book pages with a subtle central binding. On narrow screens, stack the illustration above a warm paper text page and place scene navigation directly beside/under the page.
-- [ ] Use the existing scene sentences as paragraphs rather than inserting viewport-specific hard breaks. Set narrative measure, line height, Korean word wrapping, and page padding to avoid isolated final words. Keep image alt text and source details accessible.
-- [ ] Keep previous/next, progress, and “이 이야기로 음성 만들기” available; simplify secondary copy into icons with accessible names.
-- [ ] Update/add test `keeps narration text and actions in the reading-page hierarchy` and verify story-script transfer still contains every sentence.
-- [ ] Run `cd web && npm test -- --run src/features/storybook/StorybookPage.test.tsx`, then build and deploy.
-- [ ] Verify all three story covers and at least the longest scene at 1920×1020, 650×930, and 390×844 in Production Windows Chrome. Confirm no one-word widow, image/text collision, or visible card rail scrollbar.
+- [x] Add test `renders story choices as picture-book covers without summary copy` and update existing title/card assertions.
+- [x] Use a restrained parent-and-child-reading illustration as a small welcome motif; keep each story’s own illustration and title as the choice. Do not add explanatory paragraphs.
+- [x] On desktop, lay the scene illustration and narration as two facing book pages with a subtle central binding. On narrow screens, stack the illustration above a warm paper text page and place scene navigation directly beside/under the page.
+- [x] Use the existing scene sentences as paragraphs rather than inserting viewport-specific hard breaks. Set narrative measure, line height, Korean word wrapping, and page padding to avoid isolated final words. Keep image alt text and source details accessible.
+- [x] Keep previous/next, progress, and “이 이야기로 음성 만들기” available; simplify secondary copy into icons with accessible names.
+- [x] Update/add test `keeps narration text and actions in the reading-page hierarchy` and verify story-script transfer still contains every sentence.
+- [x] Run `cd web && npm test -- --run src/features/storybook/StorybookPage.test.tsx`, then build and deploy.
+- [x] Verify all three story covers and at least the longest scene at 1920×1020, 650×930, and 390×844 in Production Windows Chrome. Confirm no one-word widow, image/text collision, or visible card rail scrollbar.
+
+**Task 5 complete:** The two picture-book behavior tests were added and the focused storybook suite passes 6/6; `npm run build` passes. The Production build for `22e89ec` was refined after 390×844 review found the shared mobile menu clipped at the right edge. `d924d30` changes it to a one-row, horizontally scrollable menu with a hidden scrollbar; focused tests and build passed again. Vercel Production deployment `dpl_J7GbNoSvfHGjBRwvu9P6QEDHqKUN` is `READY` for `d924d30912cc12f91d8b786c2fabb84124477152` and owns `recording-voice-web.vercel.app`. Windows Chrome at device viewport 390×844 (Chrome window screenshot 625×922 at 125% display scaling) shows all three story covers across the catalog scroll, then the long Snow White scene with a readable paper page, non-isolated final word, scene controls, progress, source detail, and voice-generation action. The 1920×1020 and 650×930 catalog/scene captures are `rv05-prod-catalog-1920.png`, `rv05-prod-catalog-650.png`, `rv05-latest-long-scene-1920.png`, `rv05-prod-long-scene-650.png`, and `rv05-prod-long-scene-650-bottom.png`; 390px captures are `rv05-mobile-nav-deployed.png`, `rv05-mobile-catalog-top.png`, `rv05-mobile-catalog-bottom.png`, `rv05-mobile-catalog-bottom2.png`, `rv05-mobile-scene-top.png`, and `rv05-mobile-long-scene-bottom.png` in Windows Temp. A previous full-suite run still has three unrelated App/generation handoff assertions looking for the old label `읽을 문장` while the current accessible name is `동화 대본` (40 passed, 3 failed); focused storybook tests and build pass. No voice generation was started.
 
 ### Task 6: Use book typography for saved and generated transcripts
 

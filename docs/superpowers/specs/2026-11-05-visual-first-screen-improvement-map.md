@@ -72,6 +72,13 @@
 - 632×912 모바일 콘텐츠에서는 그림 아래에 두 줄 자막이 놓이고 좌우 화살표는 그림 안에 유지됐다. 진행 막대와 음성 만들기 버튼이 첫 화면에 들어오며 버튼 위치는 y=818~878이다. 그림 출처 텍스트는 기본 화면에서 보이지 않고 정보 아이콘 안에 접혔다.
 - 배포 `dpl_Bnb8FGQrxMxgmG1MzSgg7UKCRiq8`(Production Ready, 코드 커밋 `e30ed1e`)의 고유 배포 URL과 `https://recording-voice-web.vercel.app` 별칭을 Windows Chrome Agent Desktop MCP에서 확인했다. 로컬 PC 연결 후 RV-06 화면을 넓은/좁은 창에서 각각 캡처했다. 실제 음성 생성은 실행하지 않았다. 다음 화면 ID는 RV-07 음성 생성이다.
 
+## RV-05–RV-06 Production 재검증 (2026-11-08)
+
+- Task 5 구현 커밋 `4a96f82`와 뷰포트 높이 보정 `22e89ec`를 Production Windows Chrome에서 확인했다. 동화 선택은 엄마와 아이 그림, 작품별 삽화/제목만 남긴 표지 카드로 보이고, 장면 화면은 데스크톱에서 펼친 책, 좁은 화면에서 그림 다음 종이색 대본 순서로 표시된다.
+- 390×844 Chrome Device Mode에서 상단 메뉴 항목이 오른쪽에서 잘리는 것을 발견했다. 모바일 메뉴를 한 줄 가로 탐색으로 바꾸고 스크롤 막대를 감췄다. 수정 커밋 `d924d30`의 Production 배포 `dpl_J7GbNoSvfHGjBRwvu9P6QEDHqKUN`은 `READY`이며 전체 SHA `d924d30912cc12f91d8b786c2fabb84124477152`로 확인했다. 안정 별칭 `https://recording-voice-web.vercel.app`을 새로고침한 Windows Chrome에서 메뉴, 표지, 장면을 다시 확인했다.
+- 1920×1020과 650×930에서는 세 작품 표지와 장면을 확인했다. 390×844에서는 세 작품 표지를 페이지를 내려가며 모두 확인했고, 긴 백설공주 장면의 종이 페이지/문단/이전·다음/진행 막대/음성 만들기를 확인했다. 모바일 Chrome 캡처는 Windows Temp의 `rv05-mobile-nav-deployed.png`, `rv05-mobile-catalog-top.png`, `rv05-mobile-catalog-bottom.png`, `rv05-mobile-catalog-bottom2.png`, `rv05-mobile-scene-top.png`, `rv05-mobile-long-scene-bottom.png`이다. 기존 1920/650 캡처는 `rv05-prod-catalog-1920.png`, `rv05-prod-catalog-650.png`, `rv05-latest-long-scene-1920.png`, `rv05-prod-long-scene-650.png`, `rv05-prod-long-scene-650-bottom.png`이다.
+- 390px 장면 본문 마지막 `지냈답니다.`는 단독 줄로 남지 않았고 글과 그림이 겹치지 않았다. 스크롤 아래에서 이전/다음, 진행, 출처 정보 버튼, 음성 만들기 동작이 모두 도달 가능했다. 실제 음성 생성은 실행하지 않았다. 다음 화면 ID는 RV-07 음성 생성이다.
+
 ## RV-07 음성 생성 1차 수정 결과
 
 - 단계 문구, 긴 페이지 설명, 카드 제목/설명, 필드 도움말을 제거했다. 읽을 목소리/문장/생성 버튼을 한 작업 카드 안에 배치하고, 데스크톱은 문장 입력 약 60%와 목소리/모델 약 40% 좌우 구성, 모바일은 목소리 → 문장 → 생성 버튼으로 쌓았다. 모델 설치 여부는 체크 시각으로, 메모리는 게이지로 나타낸다.
