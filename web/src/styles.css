@@ -436,7 +436,8 @@ a { color: inherit; }
   .brand-copy strong { font-size: var(--font-size-body); }
   .brand-copy small { font-size: var(--font-size-body); }
   .sidebar-section-label, .sidebar-spacer, .privacy-card, .sidebar-footer, .sidebar > a.nav-link { display: none; }
-.primary-nav { display: flex; flex-wrap: wrap; gap: 2px; overflow: visible; padding-bottom: 8px; }
+  .primary-nav { display: flex; flex-wrap: nowrap; gap: 2px; overflow-x: auto; overflow-y: hidden; padding-bottom: 8px; scrollbar-width: none; }
+  .primary-nav::-webkit-scrollbar { display: none; }
 .primary-nav .nav-link { flex: 0 0 auto; justify-content: center; min-height: 34px; padding: 0 5px; white-space: nowrap; font-size: var(--font-size-body); }
   .primary-nav .nav-link > span:nth-child(2) { display: inline; }
   .primary-nav .nav-link__icon { display: none; }
