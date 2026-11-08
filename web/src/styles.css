@@ -15,6 +15,7 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--color-background); }
 button, input, textarea, select { font: inherit; }
+h1, h2 { text-wrap: balance; }
 button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible {
   outline: 3px solid var(--color-border-focus);
   outline-offset: 3px;
@@ -435,7 +436,7 @@ a { color: inherit; }
   .brand-mark { width: 32px; height: 32px; border-radius: var(--radius-card); }
   .brand-mark svg { width: 23px; height: 23px; }
   .brand-copy strong { font-size: var(--font-size-body); }
-  .brand-copy small { font-size: var(--font-size-body); }
+  .brand-copy small { display: none; }
   .sidebar-section-label, .sidebar-spacer, .privacy-card, .sidebar-footer, .sidebar > a.nav-link { display: none; }
   .primary-nav { display: flex; flex-wrap: nowrap; gap: 2px; overflow-x: auto; overflow-y: hidden; padding-bottom: 8px; scrollbar-width: none; }
   .primary-nav::-webkit-scrollbar { display: none; }
@@ -478,7 +479,6 @@ a { color: inherit; }
   .app-shell--record .app-page-stack { gap: 0; }
   .app-shell--record .page-content > .page-stack { gap: 0; }
   .app-shell--record .page-heading { padding-block: 0; }
-  .app-shell--record .recorder-card > div:first-child { display: none; }
   .app-shell--record .recorder-panel-heading { display: none; }
   .recorder-workspace { grid-template-columns: minmax(0,1fr); gap: 10px; }
   .recorder-script-panel, .recorder-console { gap: 9px; }
@@ -549,6 +549,10 @@ a { color: inherit; }
   .empty-card { min-height: 280px; }
   .setting-row { grid-template-columns: 25px minmax(0,1fr); }
   .setting-state { grid-column: 2; }
+}
+
+@media (max-width: 380px) {
+  .primary-nav { flex-wrap: wrap; overflow: visible; padding-bottom: 5px; }
 }
 
 @media (max-width: 420px) {
