@@ -482,7 +482,7 @@ a { color: inherit; }
   .app-shell--record .recorder-panel-heading { display: none; }
   .recorder-workspace { grid-template-columns: minmax(0,1fr); gap: 10px; }
   .recorder-script-panel, .recorder-console { gap: 9px; }
-  .recorder-script-panel textarea { height: 160px; min-height: 160px; padding: 18px; font-size: 19px; }
+  .recorder-script-panel textarea { height: auto; min-height: 260px; padding: 18px; font-size: 19px; }
   .recorder-action-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 7px; }
   .recorder-action-row .recorder-start-button { min-height: 52px; }
   .recorder-action-row .ws-button { padding-inline: 10px; }
