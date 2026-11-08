@@ -489,7 +489,15 @@ a { color: inherit; }
   .recording-cues { display: none; }
   .recording-next-step { justify-content: stretch; margin-top: -3px; }
   .recording-next-step .ws-button { width: 100%; }
-  .voice-take-actions { align-items: stretch; }
+  .voice-take-toolbar { gap: 8px; }
+  .voice-take-meta { flex: 1 1 auto; gap: 7px; min-height: 40px; }
+  .voice-take-wave { flex-basis: 30px; width: 30px; height: 30px; }
+  .voice-take-meta time, .voice-take-duration { white-space: nowrap; }
+  .voice-take-meta time { font-size: 14px; }
+  .voice-take-duration { padding: 4px 7px; }
+  .voice-take-actions { align-items: stretch; gap: 5px; }
+  .voice-take-actions > .ws-button { min-height: 40px; padding-inline: 9px; }
+  .voice-delete-button { width: 40px; min-height: 40px !important; }
   .storybook-catalog > div > div:last-child { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--windsoft-space-3); }
   .storybook-card__body { min-height: 56px; padding: 11px 12px; }
   .storybook-card__body strong { font-size: var(--font-size-body); }
