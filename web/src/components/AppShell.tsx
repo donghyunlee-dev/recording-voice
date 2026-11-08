@@ -32,7 +32,6 @@ export function AppShell({ activeRoute, onNavigate, onReconnect, connectionState
           </span>
           <span className="brand-copy">
             <strong>보이스 스튜디오</strong>
-            <small>LOCAL VOICE WORKSPACE</small>
           </span>
         </a>
 
@@ -85,11 +84,6 @@ export function AppShell({ activeRoute, onNavigate, onReconnect, connectionState
 
       <div className="app-main">
         <header className="topbar">
-          <div className="topbar__context">
-            <span className="topbar__eyebrow">개인 음성 작업공간</span>
-            <span className="topbar__divider" aria-hidden="true">/</span>
-            <span className="topbar__current">{primaryLinks.find((item) => item.route === activeRoute)?.label ?? '설정 및 설치'}</span>
-          </div>
           <div className="topbar__actions">
             <StatusBadge status={connectionState === 'connected' ? 'success' : 'inactive'} label={connectionState === 'connected' ? '로컬 연결됨' : '로컬 연결 전'} />
             {connectionState === 'connected' && onReconnect && <button className="help-button reconnect-button" type="button" aria-label="로컬 앱 다시 연결" title="로컬 앱 다시 연결" onClick={onReconnect}>↻</button>}

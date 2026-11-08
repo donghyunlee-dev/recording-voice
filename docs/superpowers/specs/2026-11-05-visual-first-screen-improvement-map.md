@@ -79,6 +79,13 @@
 - 1920×1020과 650×930에서는 세 작품 표지와 장면을 확인했다. 390×844에서는 세 작품 표지를 페이지를 내려가며 모두 확인했고, 긴 백설공주 장면의 종이 페이지/문단/이전·다음/진행 막대/음성 만들기를 확인했다. 모바일 Chrome 캡처는 Windows Temp의 `rv05-mobile-nav-deployed.png`, `rv05-mobile-catalog-top.png`, `rv05-mobile-catalog-bottom.png`, `rv05-mobile-catalog-bottom2.png`, `rv05-mobile-scene-top.png`, `rv05-mobile-long-scene-bottom.png`이다. 기존 1920/650 캡처는 `rv05-prod-catalog-1920.png`, `rv05-prod-catalog-650.png`, `rv05-latest-long-scene-1920.png`, `rv05-prod-long-scene-650.png`, `rv05-prod-long-scene-650-bottom.png`이다.
 - 390px 장면 본문 마지막 `지냈답니다.`는 단독 줄로 남지 않았고 글과 그림이 겹치지 않았다. 스크롤 아래에서 이전/다음, 진행, 출처 정보 버튼, 음성 만들기 동작이 모두 도달 가능했다. 실제 음성 생성은 실행하지 않았다. 다음 화면 ID는 RV-07 음성 생성이다.
 
+### 동화 삽화 교체 재검증 (2026-11-08)
+
+- 사용자가 기존 삽화가 무섭다고 피드백해 세 작품의 9개 장면을 둥글고 친근한 캐릭터와 파스텔 색감의 카와이 그림책 분위기로 다시 그렸다. 기존 캐릭터나 로고를 복제하지 않는 자체 생성 그림이며, 각 장면의 대체 텍스트도 그림 내용에 맞게 바꿨다. 새 그림은 1024×1024 WebP로 제공하고 전체 자산은 약 2.6MB다.
+- 이전 공개 도메인 삽화를 실제 제품에서 제외하고, 새 이미지와 맞지 않는 Wikimedia 링크/아이콘을 장면 화면에서 제거했다. 사용 중인 원본 파일은 `web/public/storybook/SOURCES.md`에 기록했다.
+- Production 배포 `dpl_8uv9LqBPzwFtWDzeruen7T7oozgD`의 커밋 `e3bdc5fa77af44d1cb50dbee7836725b29a04655`가 `READY`임을 확인했다. Windows Chrome 320×844 Device Mode(625×912 캡처, 125% 배율)에서 표지와 백설공주 첫 장면의 새 이미지를 보았다. 장면 2는 접근성 트리에서 실제 이미지와 대체 텍스트가 로드된 것을 확인했다. 아홉 개 배포 이미지 URL은 모두 HTTP 200이며 바이트 크기가 저장 파일과 일치했다.
+- 캡처는 Windows Temp의 `rv-kawaii-catalog-320.png`, `rv-kawaii-snowwhite-01-320.png`, `rv-kawaii-snowwhite-02-320.png`다. 이미지 파일 아홉 개를 모두 직접 시각 검토해 위협적인 표정/어두운 장면이 없고 스타일이 일관됨을 확인했다. 동화 선택/장면 화면 전체 폭 검토는 Task 7 수용 점검에 계속 포함한다.
+
 ## RV-07 음성 생성 1차 수정 결과
 
 - 단계 문구, 긴 페이지 설명, 카드 제목/설명, 필드 도움말을 제거했다. 읽을 목소리/문장/생성 버튼을 한 작업 카드 안에 배치하고, 데스크톱은 문장 입력 약 60%와 목소리/모델 약 40% 좌우 구성, 모바일은 목소리 → 문장 → 생성 버튼으로 쌓았다. 모델 설치 여부는 체크 시각으로, 메모리는 게이지로 나타낸다.

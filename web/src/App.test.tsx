@@ -43,6 +43,8 @@ describe('App first-run flow', () => {
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
     expect(screen.queryByRole('button', { name: '이 PC에 연결' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
+    expect(screen.queryByText('LOCAL VOICE WORKSPACE')).not.toBeInTheDocument()
+    expect(screen.queryByText('개인 음성 작업공간')).not.toBeInTheDocument()
   })
 
   it('opens the recording studio as soon as pairing finds the installed model', async () => {
