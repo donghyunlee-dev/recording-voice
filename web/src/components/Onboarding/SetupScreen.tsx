@@ -55,8 +55,8 @@ function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
     let active = true
     void getRuntimeHealth().then((health) => {
       if (active && health.status === 'ok') {
-        setStage('ready')
         setError('')
+        void connectDetectedRuntime()
       }
     }).catch((reason: unknown) => {
       if (active) {
@@ -77,8 +77,8 @@ function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
       try {
         const health = await getRuntimeHealth()
         if (active && health.status === 'ok') {
-          setStage('ready')
           setError('')
+          await connectDetectedRuntime()
         }
       } catch (reason) {
         if (active && reason instanceof Error) setError(reason.message)
@@ -98,7 +98,9 @@ function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
     // permission prompt with a user gesture.
     try {
       const health = await getRuntimeHealth()
-      if (health.status === 'ok') setStage('ready')
+      if (health.status === 'ok') {
+        await connectDetectedRuntime()
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'PC 앱에 연결할 수 없습니다.')
       setStage('unavailable')
@@ -108,12 +110,6 @@ function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
   async function findRuntimeAfterInstall() {
     setStage('detect')
     setError('')
-    try {
-      const health = await getRuntimeHealth()
-      if (health.status === 'ok') setStage('ready')
-    } catch (reason) {
-      if (reason instanceof Error) setError(reason.message)
-    }
   }
 
   if (stage === 'checking') {

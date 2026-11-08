@@ -35,14 +35,13 @@ describe('App first-run flow', () => {
     expect(screen.queryByRole('heading', { name: '녹음 스튜디오' })).not.toBeInTheDocument()
   })
 
-  it('connects directly when the runtime is already detected', async () => {
-    const user = userEvent.setup()
+  it('automatically opens recording when the runtime is already detected', async () => {
     vi.stubGlobal('fetch', stubReadyRuntime('installed'))
     render(<App />)
 
-    expect(await screen.findByRole('button', { name: '이 PC에 연결' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: '이 PC에 연결' }))
     expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
+    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '이 PC에 연결' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
   })
 
@@ -177,6 +176,6 @@ function stubReadyRuntime(modelStatus: 'installed' | 'not_installed', recordings
     }] }) })
 }
 
-async function connectToRuntime(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: '이 PC에 연결' }))
+async function connectToRuntime(_user: ReturnType<typeof userEvent.setup>) {
+  await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
 }
