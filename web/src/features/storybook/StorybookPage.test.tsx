@@ -4,6 +4,16 @@ import { StorybookPage } from './StorybookPage'
 import { storybooks, storyScript } from './storybookData'
 
 describe('StorybookPage', () => {
+  it('renders story choices as picture-book covers without summary copy', () => {
+    render(<StorybookPage onGenerateSpeech={vi.fn()} />)
+
+    expect(screen.getByRole('img', { name: '엄마와 아이가 함께 읽는 동화책' })).toBeVisible()
+    for (const story of storybooks) {
+      expect(screen.getByRole('button', { name: `${story.title} 선택` })).toBeVisible()
+      expect(screen.queryByText(story.summary)).not.toBeInTheDocument()
+    }
+  })
+
   it('preloads three short stories with three illustrated scenes each', () => {
     render(<StorybookPage onGenerateSpeech={vi.fn()} />)
 
@@ -15,7 +25,7 @@ describe('StorybookPage', () => {
     expect(screen.queryByText(/이야기를 고르고 장면을 넘겨보세요/)).not.toBeInTheDocument()
     expect(screen.queryByText(/그림 3장/)).not.toBeInTheDocument()
     expect(screen.queryByText(storybooks[0].summary)).not.toBeInTheDocument()
-    expect(screen.getAllByRole('img')).toHaveLength(3)
+    expect(screen.getAllByRole('img', { name: /삽화 미리보기$/ })).toHaveLength(3)
     expect(screen.getAllByRole('button', { name: /선택$/ })).toHaveLength(3)
     for (const story of storybooks) {
       expect(story.scenes).toHaveLength(3)
@@ -66,5 +76,18 @@ describe('StorybookPage', () => {
     expect(screen.getByRole('button', { name: '다음 장면' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '이 이야기로 음성 만들기' })).toBeVisible()
     expect(screen.getByText('ⓘ')).toBeVisible()
+  })
+
+  it('keeps narration and reading actions in the picture-book page hierarchy', () => {
+    render(<StorybookPage onGenerateSpeech={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '백설공주 선택' }))
+
+    const readingPage = screen.getByRole('region', { name: '동화 본문' })
+    expect(readingPage).toContainElement(screen.getByText(/깊은 숲에서 길을 잃은 백설공주/))
+    expect(readingPage).toHaveClass('storybook-reading-page')
+    expect(screen.getByRole('button', { name: '이전 장면' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '다음 장면' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '이 이야기로 음성 만들기' })).toBeVisible()
+    expect(screen.getByRole('progressbar', { name: '장면 진행' })).toBeVisible()
   })
 })
