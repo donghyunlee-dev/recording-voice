@@ -7,9 +7,10 @@ describe('AudioOutputCard', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('puts playback and deletion in the result toolbar and hides technical details until opened', () => {
+    const transcript = '어린 왕자는 작은 별을 바라보았어요.\n오늘 밤도 함께 걸었지요.'
     const output = {
       id: 'output-1',
-      text: '생성된 문장입니다.',
+      text: transcript,
       created_at: '2026-11-05T00:13:39Z',
       duration_seconds: 13.4,
       sample_rate: 24_000,
@@ -25,7 +26,8 @@ describe('AudioOutputCard', () => {
 
     expect(screen.getByRole('button', { name: '생성된 음성 듣기' })).toBeVisible()
     expect(screen.getByRole('button', { name: '결과 삭제' })).toBeVisible()
-    expect(screen.getByText('생성된 문장입니다.')).toBeVisible()
+    const readingPage = screen.getByRole('region', { name: '생성 대본' })
+    expect(readingPage.querySelector('p')?.textContent).toBe(transcript)
     expect(screen.getByRole('time')).toHaveAttribute('dateTime', output.created_at)
     expect(screen.getByText('13.4초')).toBeVisible()
 

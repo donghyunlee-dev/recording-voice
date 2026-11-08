@@ -58,7 +58,9 @@ export function AudioOutputCard({ token, output, onDeleted }: AudioOutputCardPro
           </Button>}
         </div>
       </div>
-      <p className="voice-take-transcript">{output.text}</p>
+      <section className="transcript-reading-page" aria-label="생성 대본">
+        <p className="storybook-reading-page__text voice-take-transcript">{output.text}</p>
+      </section>
       {audioUrl && <audio className="audio-output-player" controls src={audioUrl} aria-label="생성된 음성 재생" />}
       <details className="audio-output-details" aria-label="파일 정보">
         <summary aria-label="파일 정보" title="파일 정보"><span aria-hidden="true">ⓘ</span></summary>

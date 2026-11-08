@@ -77,18 +77,23 @@ function VoiceTake({ recording, token, onDeleted }: { recording: LocalRecording;
 
   return (
     <Card className="voice-take-card">
-      <div className="voice-take-meta">
-        <span className="voice-take-wave" aria-hidden="true">〰</span>
-        <time dateTime={recording.created_at}>{formatRecordingDate(recording.created_at)}</time>
-        <span className="voice-take-duration">{Math.round(recording.duration_seconds)}초</span>
+      <div className="voice-take-toolbar">
+        <div className="voice-take-meta">
+          <span className="voice-take-wave" aria-hidden="true">〰</span>
+          <time dateTime={recording.created_at}>{formatRecordingDate(recording.created_at)}</time>
+          <span className="voice-take-duration">{Math.round(recording.duration_seconds)}초</span>
+        </div>
+        <div className="voice-take-actions">
+          {!audioUrl && <Button variant="primary" onClick={() => void loadAudio()}><span aria-hidden="true">▶</span> 듣기</Button>}
+          <Button className="voice-delete-button" variant="ghost" aria-label="녹음 삭제" title="녹음 삭제" onClick={() => void remove()}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 4v6m4-6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </Button>
+        </div>
       </div>
-      <p className="voice-take-transcript">{recording.transcript}</p>
-      <div className="voice-take-actions">
-        {!audioUrl ? <Button variant="primary" onClick={() => void loadAudio()}><span aria-hidden="true">▶</span> 듣기</Button> : <audio controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
-        <Button className="voice-delete-button" variant="ghost" aria-label="녹음 삭제" title="녹음 삭제" onClick={() => void remove()}>
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 4v6m4-6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </Button>
-      </div>
+      {audioUrl && <audio className="voice-take-player" controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
+      <section className="transcript-reading-page" aria-label="저장한 녹음 대본">
+        <p className="storybook-reading-page__text voice-take-transcript">{recording.transcript}</p>
+      </section>
       {error && <p role="alert" className="recorder-error">{error}</p>}
     </Card>
   )

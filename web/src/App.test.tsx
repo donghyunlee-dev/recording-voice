@@ -6,6 +6,22 @@ import { App } from './App'
 describe('App first-run flow', () => {
   afterEach(() => vi.unstubAllGlobals())
 
+  it('renders saved transcript as readable story content', async () => {
+    const user = userEvent.setup()
+    const transcript = '엄마와 아이가 함께 읽는 이야기입니다.\n마지막 문장도 그대로 남아요.'
+    vi.stubGlobal('fetch', stubReadyRuntime('installed', [{
+      id: 'saved-take', transcript, created_at: '2026-11-03T00:00:00Z',
+      duration_seconds: 4, sample_rate: 24_000, channels: 1, bytes: 192_044,
+    }]))
+    render(<App />)
+
+    await connectToRuntime(user)
+    await user.click(screen.getByRole('link', { name: '저장한 녹음' }))
+
+    const readingPage = await screen.findByRole('region', { name: '저장한 녹음 대본' })
+    expect(readingPage.querySelector('p')?.textContent).toBe(transcript)
+  })
+
   it('shows the detected runtime state and keeps recording hidden until pairing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('runtime unavailable')))
     render(<App />)
@@ -111,11 +127,11 @@ describe('App first-run flow', () => {
     await user.click(screen.getByRole('button', { name: /저장한 목소리로 음성 만들기/ }))
 
     expect(await screen.findByRole('heading', { name: '음성 생성' })).toBeVisible()
-    expect(screen.getByLabelText('읽을 목소리')).toBeVisible()
-    expect(screen.getByLabelText('음성 모델')).toBeVisible()
-    expect(screen.getByLabelText('읽을 문장')).toBeVisible()
+    expect(screen.getByRole('group', { name: '읽을 목소리' })).toBeVisible()
+    expect(screen.getByRole('group', { name: '음성 모델' })).toBeVisible()
+    expect(screen.getByLabelText('동화 대본')).toBeVisible()
     expect(screen.getByRole('button', { name: '내 목소리로 생성' })).toBeVisible()
-    expect(screen.getByRole('status', { name: '모델 설치됨' })).toBeVisible()
+    expect(screen.getByText('설치됨')).toBeVisible()
     expect(screen.getByRole('meter', { name: '메모리 상태' })).toHaveAttribute('aria-valuenow', '5.8')
     expect(screen.queryByText('2단계 · 내 목소리로 읽어보기')).not.toBeInTheDocument()
     expect(screen.queryByText(/짧은 음성 결과를 만듭니다/)).not.toBeInTheDocument()
@@ -135,7 +151,7 @@ describe('App first-run flow', () => {
     await user.click(screen.getByRole('button', { name: '이 이야기로 음성 만들기' }))
 
     expect(await screen.findByRole('heading', { name: '음성 생성' })).toBeVisible()
-    const scriptField = screen.getByLabelText('읽을 문장')
+    const scriptField = screen.getByLabelText('동화 대본')
     expect((scriptField as HTMLTextAreaElement).value).toContain('빨간 모자는 아픈 할머니께 드릴 바구니를 들고 숲길을 걸었어요.')
     expect(screen.getByRole('button', { name: '이 동화 대본으로 음성 만들기' })).toBeVisible()
   })
