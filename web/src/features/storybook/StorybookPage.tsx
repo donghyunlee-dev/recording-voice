@@ -50,10 +50,6 @@ export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
         <div className="storybook-progress" role="progressbar" aria-label="장면 진행" aria-valuemin={1} aria-valuemax={activeStory.scenes.length} aria-valuenow={activeScene + 1}>
           <span style={{ width: `${((activeScene + 1) / activeStory.scenes.length) * 100}%` }} />
         </div>
-        <details className="storybook-source">
-          <summary aria-label="그림 출처">ⓘ</summary>
-          <a href={scene.imageSource} target="_blank" rel="noreferrer">Wikimedia Commons</a>
-        </details>
         <Button variant="primary" size="lg" onClick={() => onGenerateSpeech(storyScript(activeStory))}>이 이야기로 음성 만들기</Button>
       </div>
     </Card>

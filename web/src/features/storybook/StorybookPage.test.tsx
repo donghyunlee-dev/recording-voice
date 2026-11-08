@@ -29,6 +29,10 @@ describe('StorybookPage', () => {
     expect(screen.getAllByRole('button', { name: /선택$/ })).toHaveLength(3)
     for (const story of storybooks) {
       expect(story.scenes).toHaveLength(3)
+      for (const scene of story.scenes) {
+        expect(scene.image).toMatch(/-kawaii\.webp$/)
+        expect(scene.imageAlt).not.toMatch(/옛 삽화/)
+      }
       expect(storyScript(story).split('\n').filter(Boolean).length).toBeLessThan(20)
     }
   })
@@ -75,7 +79,7 @@ describe('StorybookPage', () => {
     expect(screen.getByRole('button', { name: '이전 장면' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '다음 장면' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '이 이야기로 음성 만들기' })).toBeVisible()
-    expect(screen.getByText('ⓘ')).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Wikimedia Commons' })).not.toBeInTheDocument()
   })
 
   it('keeps narration and reading actions in the picture-book page hierarchy', () => {
