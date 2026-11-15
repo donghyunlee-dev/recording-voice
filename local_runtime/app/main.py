@@ -24,6 +24,7 @@ from .workspaces import WorkspaceStore, WorkspaceError
 from .model_install import ModelInstallCancelled, ModelInstaller
 from .security import PairingManager
 from .paths import default_data_dir
+from .text_normalization import normalize_for_speech
 from .system_info import memory_available_gib, memory_total_gib
 from .storage import LocalOutputStore, LocalRecordingStore, RecordingError
 
@@ -359,18 +360,18 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail={'code': 'output_not_found'})
         return workspaces.select_output(workspace_id, output)
 
-    def run_generation(job_id: str, recording: dict, audio_path: Path, text: str, workspace_id: str | None = None, model_id: str = MODEL_ID, expression_intensity: float | None = None) -> None:
+    def run_generation(job_id: str, recording: dict, audio_path: Path, text: str, speech_text: str, workspace_id: str | None = None, model_id: str = MODEL_ID, expression_intensity: float | None = None) -> None:
         try:
             on_phase = lambda status: jobs.update(job_id, status=status)
             if model_id == EXPRESSION_MODEL_ID:
                 audio, metrics = expression_generator.generate(
-                    audio_path=audio_path, text=text,
+                    audio_path=audio_path, text=speech_text,
                     intensity=expression_intensity, on_phase=on_phase,
                 )
             else:
                 audio, metrics = generator.generate(
                     audio_path=audio_path, transcript=recording["transcript"],
-                    text=text, on_phase=on_phase,
+                    text=speech_text, on_phase=on_phase,
                 )
             metadata = {
                 **metrics,
@@ -422,7 +423,9 @@ def create_app() -> FastAPI:
         intensity = (0.5 if payload.expression_intensity is None else payload.expression_intensity) if payload.model_id == EXPRESSION_MODEL_ID else None
         settings = {"expression_intensity": intensity} if intensity is not None else {}
         job = jobs.create("generation", **settings, model_id=payload.model_id, recording_id=recording["id"], text=payload.text.strip(), workspace_id=payload.workspace_id)
-        executor.submit(run_generation, job["id"], recording, audio_path, payload.text.strip(), payload.workspace_id, payload.model_id, intensity)
+        source_text = payload.text.strip()
+        speech_text = normalize_for_speech(source_text)
+        executor.submit(run_generation, job["id"], recording, audio_path, source_text, speech_text, payload.workspace_id, payload.model_id, intensity)
         return job
 
     @app.get('/api/v1/jobs')
