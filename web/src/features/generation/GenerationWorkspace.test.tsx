@@ -86,6 +86,19 @@ describe('GenerationWorkspace', () => {
     expect(screen.getByRole('textbox', { name: '읽을 텍스트' })).toHaveValue('새 대본')
   })
 
+  it('starts a new work from a dedicated action instead of requiring a select option', async () => {
+    sessionStorage.setItem('voice-studio.generation-draft', JSON.stringify({ workId: work.id }))
+    vi.mocked(listWorkspaces).mockResolvedValue([work])
+    render(<GenerationWorkspace token="test-token" recordings={recordings} onOutputCreated={vi.fn()} onNavigate={vi.fn()} />)
+
+    await screen.findByRole('option', { name: work.title })
+    expect(screen.getByRole('combobox', { name: '저장한 작업' })).toHaveValue(work.id)
+    fireEvent.click(screen.getByRole('button', { name: '새 작업' }))
+
+    expect(screen.getByRole('combobox', { name: '저장한 작업' })).toHaveValue('')
+    expect(screen.getByRole('textbox', { name: '읽을 텍스트' })).toHaveValue('')
+  })
+
   it('does not substitute another voice when a restored recording has been deleted', async () => {
     sessionStorage.setItem('voice-studio.generation-draft', JSON.stringify({ workId: work.id, text: work.text, recordingId: 'deleted-voice' }))
     vi.mocked(listWorkspaces).mockResolvedValue([{ ...work, recording_id: 'deleted-voice' }])

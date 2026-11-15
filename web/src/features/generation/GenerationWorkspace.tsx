@@ -236,7 +236,8 @@ export function GenerationWorkspace({ token, recordings, initialText, initialTit
   return (
     <div className="generation-workspace">
       <div className="workspace-toolbar">
-        <label>작업<select aria-label="저장한 작업" value={work?.id ?? ''} onChange={(event) => openWork(event.target.value)} disabled={running || submitting || saving || !worksLoaded}><option value="">새 작업</option>{works.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <label>저장한 작업<select aria-label="저장한 작업" value={work?.id ?? ''} onChange={(event) => openWork(event.target.value)} disabled={running || submitting || saving || !worksLoaded}><option value="">작업 선택</option>{works.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <Button variant="secondary" onClick={() => openWork('')} disabled={running || submitting || saving || !worksLoaded}>새 작업</Button>
         <Button variant="secondary" onClick={() => void saveWork()} disabled={saving || submitting || running || !worksLoaded || !jobsLoaded}>{saving ? '저장 중' : '작업 저장'}</Button>
         <span role="status">{workStatus}</span>
       </div>
