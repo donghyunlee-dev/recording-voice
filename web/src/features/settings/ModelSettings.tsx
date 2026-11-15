@@ -74,7 +74,7 @@ export function ModelSettings({ token }: { token: string | null }) {
       <p>Qwen3-TTS 0.6B Base · 다운로드 {formatBytes(model.download_size_bytes)} · 저장 공간 {model.disk_free_gib.toFixed(1)} GiB</p>
       <a href="https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base" target="_blank" rel="noreferrer">모델 저장소와 Apache-2.0 라이선스 확인</a>
       <label><input type="checkbox" checked={acceptLicense} onChange={(event) => setAcceptLicense(event.target.checked)} /> 라이선스와 다운로드 출처를 확인했습니다.</label>
-      <Button className="settings-model-install" variant="secondary" onClick={() => void install()} disabled={!acceptLicense || model.disk_free_gib < 8 || running}>이 PC에 모델 설치</Button>
+      <Button variant="secondary" onClick={() => void install()} disabled={!acceptLicense || model.disk_free_gib < 8 || running}>이 PC에 모델 설치</Button>
       {model.disk_free_gib < 8 && <p role="alert">설치 전에 저장 공간을 8 GiB 이상 확보해 주세요.</p>}
     </> : <p>준비 상태를 확인할 수 없습니다.</p>}
     {running && <div className="model-download-progress"><span>{job.progress_percent == null ? '설치 중' : `${job.progress_percent}%`}</span><progress max="100" value={job.progress_percent ?? undefined} /><Button variant="secondary" onClick={() => void cancel()}>취소</Button></div>}

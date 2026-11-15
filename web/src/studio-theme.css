@@ -4,6 +4,7 @@
   --font-sans: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
   --color-background: #11151b;
   --color-surface: #1a2029;
+  --color-surface-raised: #273240;
   --color-surface-subtle: #222b36;
   --color-foreground: #edf2f7;
   --color-secondary: #c0cbd8;
@@ -82,15 +83,6 @@
 .app-shell .transcript-reading-page p { color: var(--color-foreground); font-family: var(--font-sans); font-size: 18px; }
 .app-shell .audio-output-toolbar, .app-shell .voice-take-toolbar { border-color: var(--color-border); }
 .app-shell button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 3px; }
-.app-shell .settings-model-install:hover:not(:disabled) {
-  border-color: var(--color-brand) !important;
-  color: var(--color-foreground) !important;
-  background: var(--color-surface-subtle) !important;
-}
-.app-shell .settings-model-install:disabled {
-  color: var(--color-muted) !important;
-  background: var(--color-surface-subtle) !important;
-}
 @media (max-width: 1000px) {
   .app-shell .studio-topbar { flex-wrap: wrap; height: auto; padding: 16px 24px; gap: 12px; }
   .studio-nav { order: 3; width: 100%; }
