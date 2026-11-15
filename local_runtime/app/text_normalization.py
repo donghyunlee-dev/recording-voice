@@ -11,6 +11,8 @@ _NATIVE = {
     10: '열', 11: '열한', 12: '열두', 13: '열세', 14: '열네', 15: '열다섯', 16: '열여섯',
     17: '열일곱', 18: '열여덟', 19: '열아홉', 20: '스무',
 }
+_NATIVE_TENS = {20: '스물', 30: '서른', 40: '마흔', 50: '쉰', 60: '예순', 70: '일흔', 80: '여든', 90: '아흔'}
+_NATIVE_ONES = {1: '한', 2: '두', 3: '세', 4: '네', 5: '다섯', 6: '여섯', 7: '일곱', 8: '여덟', 9: '아홉'}
 _COUNTERS = re.compile(r'(개|명|마리|권|잔|병|대|장|살|번|가지|곳|줄|켤레|그루|송이|시)')
 _SINO_UNITS = re.compile(r'(초|분|월|년|일|원|퍼센트|도|층|호|회|주|시간|킬로그램|킬로미터|미터|센티미터|그램|kg|km|cm|mm|m|g|%)', re.IGNORECASE)
 _ARITHMETIC = re.compile(r'^\s*(\d+)\s*([*×x+−\-/÷])\s*(\d+)\s*=\s*(\d+)\s*([.!?。]?)\s*$')
@@ -45,8 +47,19 @@ def sino_number(value: int) -> str:
     for index in range(len(groups) - 1, -1, -1):
         group = groups[index]
         if group:
-            parts.append(_sino_group(group) + _LARGE_UNITS[index])
+            group_text = '' if index == 1 and group == 1 else _sino_group(group)
+            parts.append(group_text + _LARGE_UNITS[index])
     return ''.join(parts)
+
+
+def native_counter_number(value: int) -> str | None:
+    if value in _NATIVE:
+        return _NATIVE[value]
+    if value < 21 or value > 99:
+        return None
+    tens = value // 10 * 10
+    ones = value % 10
+    return _NATIVE_TENS[tens] + (_NATIVE_ONES[ones] if ones else '')
 
 
 def _spoken_number(number: str, following: str) -> str:
@@ -56,7 +69,7 @@ def _spoken_number(number: str, following: str) -> str:
         return sino_number(int(integer)) + '점' + ''.join(_DIGITS[int(digit)] for digit in fraction)
     value = int(compact)
     if _COUNTERS.match(following):
-        native = _NATIVE.get(value)
+        native = native_counter_number(value)
         if native:
             return native
     return sino_number(value)
@@ -79,7 +92,8 @@ def normalize_for_speech(text: str) -> str:
         # Preserve numeric identifiers and versions instead of guessing their reading.
         if following and following[0].isascii() and following[0].isalpha():
             return match.group(0)
+        unit = '퍼센트' if following == '%' else following
         word_gap = ' ' if not spacing and _COUNTERS.match(following) else ''
-        return _spoken_number(number, following) + (spacing or word_gap) + following
+        return _spoken_number(number, following) + (spacing or word_gap) + unit
 
     return _NUMBER_WITH_UNIT.sub(expand, text)

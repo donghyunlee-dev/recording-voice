@@ -15,6 +15,17 @@ class KoreanSpeechTextNormalizationTests(unittest.TestCase):
     def test_expands_large_and_decimal_numbers(self):
         self.assertEqual(sino_number(48), '사십팔')
         self.assertEqual(normalize_for_speech('3.14'), '삼점일사')
+        self.assertEqual(normalize_for_speech('1000원'), '천원')
+        self.assertEqual(normalize_for_speech('12,000원'), '만이천원')
+        self.assertEqual(normalize_for_speech('1,234,567원'), '백이십삼만사천오백육십칠원')
+        self.assertEqual(normalize_for_speech('100000000원'), '일억원')
+
+    def test_uses_native_korean_counter_forms_through_ninety_nine(self):
+        self.assertEqual(normalize_for_speech('20개, 24개, 99명'), '스무 개, 스물네 개, 아흔아홉 명')
+        self.assertEqual(normalize_for_speech('100개'), '백 개')
+
+    def test_expands_percentage_symbol(self):
+        self.assertEqual(normalize_for_speech('성공률 4%'), '성공률 사퍼센트')
 
     def test_preserves_versions_and_ascii_identifiers(self):
         self.assertEqual(normalize_for_speech('Qwen3-TTS v0.6B'), 'Qwen3-TTS v0.6B')
