@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getRuntimeHealth, getRuntimeSystem, pairRuntime, saveRecording } from './localRuntime'
+import { getRuntimeHealth, getRuntimeSystem, pairRuntime, renameRecording, saveRecording } from './localRuntime'
 
 describe('local runtime client', () => {
   afterEach(() => {
@@ -60,9 +60,25 @@ describe('local runtime client', () => {
     expect(init.targetAddressSpace).toBe('loopback')
   })
 
+  it('rejects an older runtime before opening an incompatible studio', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok', os: 'Windows', api_version: 'v1', version: '0.1.0' }) }))
+    await expect(getRuntimeHealth()).rejects.toMatchObject({ code: 'runtime_update_required' })
+  })
+
+  it('persists voice names with the recording and renames through the protected API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'take-id', name: '내레이션' }) })
+    vi.stubGlobal('fetch', fetchMock)
+    await saveRecording('local-token', new Blob(['wav']), '대본', '내 목소리')
+    expect((fetchMock.mock.calls[0][1].body as FormData).get('name')).toBe('내 목소리')
+    await renameRecording('local-token', 'take-id', '내레이션')
+    const [, init] = fetchMock.mock.calls[1]
+    expect(JSON.parse(init.body)).toEqual({ name: '내레이션' })
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer local-token')
+  })
+
   it('selects the Windows runtime first and routes pairing to that port', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Windows', version: '0.1.0', api_version: 'v1' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Windows', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'windows-token', expires_in: 43200, token_type: 'Bearer' }) })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -77,7 +93,7 @@ describe('local runtime client', () => {
   it('falls back to the WSL development runtime when Windows is unavailable', async () => {
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError('Windows runtime unavailable'))
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'linux-token', expires_in: 43200, token_type: 'Bearer' }) })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -94,8 +110,8 @@ describe('local runtime client', () => {
 
   it('does not select a Linux service responding on the Windows-only port', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1' }) })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'] }) })
       .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'linux-token', expires_in: 43200, token_type: 'Bearer' }) })
     vi.stubGlobal('fetch', fetchMock)
 
@@ -109,7 +125,7 @@ describe('local runtime client', () => {
     vi.stubEnv('DEV', false)
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError('Windows runtime unavailable'))
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1' }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', os: 'Linux', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'] }) })
     vi.stubGlobal('fetch', fetchMock)
 
     await expect(getRuntimeHealth()).rejects.toMatchObject({ code: 'windows_runtime_required' })

@@ -1,6 +1,7 @@
 export interface RuntimeHealth {
   status: 'ok'
   version: string
+  capabilities?: string[]
   api_version: 'v1'
   os?: string
 }
@@ -21,6 +22,7 @@ export interface RuntimeSystem {
 }
 
 export interface LocalRecording {
+  name?: string
   id: string
   transcript: string
   created_at: string
@@ -31,6 +33,7 @@ export interface LocalRecording {
 }
 
 export interface LocalModel {
+  supports_expression?: boolean
   id: string
   repository: string
   status: 'installed' | 'not_installed' | 'installing'
@@ -44,6 +47,9 @@ export interface LocalModel {
 }
 
 export interface LocalOutput {
+  expression_intensity?: number
+  model_revision?: string
+  workspace_id?: string | null
   id: string
   created_at: string
   duration_seconds: number
@@ -58,6 +64,8 @@ export interface LocalOutput {
 }
 
 export interface RuntimeJob {
+  workspace_id?: string | null
+  created_at?: string
   id: string
   kind: 'generation' | 'model_install'
   status: 'queued' | 'downloading' | 'loading_model' | 'generating' | 'completed' | 'failed' | 'cancelled'
@@ -89,6 +97,7 @@ export type RuntimeErrorCode =
   | 'disk_space_insufficient'
   | 'memory_insufficient'
   | 'windows_runtime_required'
+  | 'runtime_update_required'
   | 'unknown'
 
 export class LocalRuntimeError extends Error {
@@ -145,6 +154,7 @@ function runtimeMessage(code?: RuntimeErrorCode): string {
     case 'unsupported_model': return '지원하지 않는 모델입니다.'
     case 'disk_space_insufficient': return '모델을 내려받을 디스크 공간이 부족합니다. 모델 캐시에 최소 8 GiB를 확보해 주세요.'
     case 'memory_insufficient': return '현재 사용 가능한 메모리가 부족합니다. 다른 프로그램을 종료한 뒤 다시 시도해 주세요.'
+    case 'runtime_update_required': return 'PC 앱 업데이트가 필요합니다. 최신 설치 프로그램을 실행한 뒤 다시 연결해 주세요.'
     case 'windows_runtime_required': return 'Windows 백엔드 대신 Linux/WSL 백엔드가 응답했습니다. Windows 설치 프로그램을 다시 실행해 주세요.'
     default: return 'PC에서 로컬 앱이 실행 중인지 확인해 주세요.'
   }
@@ -185,6 +195,9 @@ async function discoverRuntime(): Promise<RuntimeHealth> {
       }
       continue
     }
+    if (health.api_version !== 'v1' || !Array.isArray(health.capabilities) || !['workspaces', 'voice_names', 'job_history'].every((capability) => health.capabilities!.includes(capability))) {
+      throw new LocalRuntimeError('runtime_update_required', runtimeMessage('runtime_update_required'))
+    }
     runtimeBaseUrl = candidate.baseUrl
     return health
   }
@@ -213,10 +226,11 @@ export async function listRecordings(token: string): Promise<LocalRecording[]> {
   return response.items
 }
 
-export async function saveRecording(token: string, wav: Blob, transcript: string): Promise<LocalRecording> {
+export async function saveRecording(token: string, wav: Blob, transcript: string, name = ''): Promise<LocalRecording> {
   const form = new FormData()
   form.set('file', wav, 'voice-take.wav')
   form.set('transcript', transcript)
+  if (name.trim()) form.set('name', name.trim())
   return request<LocalRecording>('/recordings', { method: 'POST', body: form, headers: localHeaders(token) })
 }
 
@@ -248,10 +262,10 @@ export async function listModels(token: string): Promise<LocalModel[]> {
   return (await request<{ items: LocalModel[] }>('/models', { headers: localHeaders(token) })).items
 }
 
-export async function createGeneration(token: string, recordingId: string, text: string, modelId: string): Promise<RuntimeJob> {
+export async function createGeneration(token: string, recordingId: string, text: string, modelId: string, workspaceId?: string, expressionIntensity?: number): Promise<RuntimeJob> {
   return request<RuntimeJob>('/generations', {
     method: 'POST',
-    body: JSON.stringify({ recording_id: recordingId, text, model_id: modelId }),
+    body: JSON.stringify({ recording_id: recordingId, text, model_id: modelId, ...(expressionIntensity !== undefined ? { expression_intensity: expressionIntensity } : {}), ...(workspaceId ? { workspace_id: workspaceId } : {}) }),
     headers: localHeaders(token),
   })
 }
@@ -284,4 +298,40 @@ export async function deleteOutput(token: string, outputId: string): Promise<voi
 
 function localHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}`, 'X-Local-Request': '1' }
+}
+
+export interface GenerationSettings {
+  model_id: string
+  expression_intensity?: number
+}
+
+export interface LocalWorkspace {
+  generation_settings?: GenerationSettings
+  id: string
+  title: string
+  text: string
+  recording_id: string | null
+  selected_output_id: string | null
+  created_at: string
+  updated_at: string
+}
+export async function listWorkspaces(token: string): Promise<LocalWorkspace[]> {
+  return (await request<{ items: LocalWorkspace[] }>('/workspaces', { headers: localHeaders(token) })).items
+}
+export async function createWorkspace(token: string, title: string): Promise<LocalWorkspace> {
+  return request('/workspaces', { method: 'POST', headers: localHeaders(token), body: JSON.stringify({ title }) })
+}
+export async function saveWorkspace(token: string, id: string, title: string, text: string, recordingId: string | null, generationSettings?: GenerationSettings): Promise<LocalWorkspace> {
+  return request(`/workspaces/${encodeURIComponent(id)}`, { method: 'POST', headers: localHeaders(token), body: JSON.stringify({ title, text, recording_id: recordingId, ...(generationSettings ? { generation_settings: generationSettings } : {}) }) })
+}
+export async function selectWorkspaceOutput(token: string, id: string, outputId: string): Promise<LocalWorkspace> {
+  return request(`/workspaces/${encodeURIComponent(id)}/selection`, { method: 'POST', headers: localHeaders(token), body: JSON.stringify({ output_id: outputId }) })
+}
+
+export async function listJobs(token: string): Promise<RuntimeJob[]> {
+  return (await request<{ items: RuntimeJob[] }>('/jobs', { headers: localHeaders(token) })).items
+}
+
+export async function renameRecording(token: string, id: string, name: string): Promise<LocalRecording> {
+  return request(`/recordings/${encodeURIComponent(id)}/name`, { method: 'POST', headers: localHeaders(token), body: JSON.stringify({ name }) })
 }

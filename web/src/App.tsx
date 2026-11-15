@@ -1,13 +1,18 @@
 import { Button, Card, SettingsPage as WindsoftSettingsPage, Typography } from '@windsoft/ui'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AppShell, type AppRoute } from './components/AppShell'
 import { ConnectionStatus, type ConnectionState } from './components/ConnectionStatus'
-import { deleteRecording, getRecordingAudio, getRuntimeHealth, getRuntimeSystem, listModels, listOutputs, listRecordings, LocalRuntimeError, pairRuntime, type LocalOutput, type LocalRecording, type RuntimeSystem } from './api/localRuntime'
+import { renameRecording, deleteRecording, getRecordingAudio, getRuntimeHealth, getRuntimeSystem, listOutputs, listRecordings, LocalRuntimeError, pairRuntime, type LocalOutput, type LocalRecording, type RuntimeSystem } from './api/localRuntime'
 import { SetupScreen } from './components/Onboarding/SetupScreen'
 import { Recorder } from './features/recorder/Recorder'
 import { GenerationWorkspace } from './features/generation/GenerationWorkspace'
 import { AudioOutputCard } from './features/results/AudioOutputCard'
 import { StorybookPage } from './features/storybook/StorybookPage'
+import { StudioHome } from './features/studio/StudioHome'
+import { storyScript, storybooks, type Storybook } from './features/storybook/storybookData'
+import { getVoiceName } from './features/studio/localMetadata'
+import { useExclusivePlayback } from './features/audio/useExclusivePlayback'
+import { ModelSettings } from './features/settings/ModelSettings'
 
 function PageHeading({ eyebrow, title, description }: { eyebrow?: string; title: string; description?: string }) {
   return (
@@ -19,12 +24,12 @@ function PageHeading({ eyebrow, title, description }: { eyebrow?: string; title:
   )
 }
 
-function RecordingPage({ onNavigate, token, recordings, onSaved }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onSaved: (recording: LocalRecording) => void }) {
+function RecordingPage({ onNavigate, token, recordings, onSaved, onUnsavedChange }: { onUnsavedChange: (unsaved: boolean) => void; onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onSaved: (recording: LocalRecording) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading title="먼저 내 목소리를 녹음해요" />
+      <PageHeading title="목소리 등록" />
       <div className="workspace-grid workspace-grid--recording">
-        {token ? <Recorder token={token} onSaved={onSaved} /> : (
+        {token ? <Recorder token={token} onSaved={onSaved} onUnsavedChange={onUnsavedChange} /> : (
           <Card className="recorder-card" title="새 녹음">
             <div className="empty-state"><p>위쪽의 로컬 앱 연결을 완료하면 마이크 권한 요청과 녹음 컨트롤이 활성화됩니다.</p></div>
           </Card>
@@ -37,7 +42,7 @@ function RecordingPage({ onNavigate, token, recordings, onSaved }: { onNavigate:
   )
 }
 
-function VoicesPage({ onNavigate, token, recordings, onDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onDeleted: (id: string) => void }) {
+function VoicesPage({ onNavigate, token, recordings, onDeleted, onRenamed }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; onDeleted: (id: string) => void; onRenamed: (recording: LocalRecording) => void }) {
   return (
     <div className="page-stack">
       <PageHeading title="저장한 녹음" />
@@ -48,52 +53,130 @@ function VoicesPage({ onNavigate, token, recordings, onDeleted }: { onNavigate: 
           {token && <Button variant="primary" onClick={() => onNavigate('record')}>첫 음성 녹음하기</Button>}
         </div></Card>
       ) : recordings.map((recording) => (
-        <VoiceTake key={recording.id} recording={recording} token={token} onDeleted={onDeleted} />
+        <VoiceTake key={recording.id} recording={recording} token={token} onDeleted={onDeleted} onRenamed={onRenamed} />
       ))}
     </div>
   )
 }
 
-function VoiceTake({ recording, token, onDeleted }: { recording: LocalRecording; token: string; onDeleted: (id: string) => void }) {
+function VoiceTake({ recording, token, onDeleted, onRenamed }: { recording: LocalRecording; token: string; onDeleted: (id: string) => void; onRenamed: (recording: LocalRecording) => void }) {
+  const [name, setName] = useState(recording.name || getVoiceName(recording.id, '내 목소리'))
+  const [renaming, setRenaming] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  async function saveName() {
+    setRenaming(true)
+    setError('')
+    try { onRenamed(await renameRecording(token, recording.id, name.trim())) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : '이름을 저장하지 못했습니다.') }
+    finally { setRenaming(false) }
+  }
   const [audioUrl, setAudioUrl] = useState('')
   const [error, setError] = useState('')
+  const [loadingAudio, setLoadingAudio] = useState(false)
+  const [playingAudio, setPlayingAudio] = useState(false)
+  const [playbackTime, setPlaybackTime] = useState(0)
+  const [audioDuration, setAudioDuration] = useState(recording.duration_seconds)
+  const playerRef = useRef<HTMLAudioElement>(null)
   useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl) }, [audioUrl])
 
   async function loadAudio() {
+    if (loadingAudio) return
+    if (audioUrl) {
+      const player = playerRef.current
+      if (!player) return
+      if (player.ended) player.currentTime = 0
+      try {
+        await player.play()
+        setError('')
+      } catch {
+        setError('재생을 시작하지 못했습니다. 플레이어에서 다시 시도해 주세요.')
+      }
+      return
+    }
+    setLoadingAudio(true)
     try {
       const audio = await getRecordingAudio(token, recording.id)
-      setAudioUrl(URL.createObjectURL(audio))
+      const url = URL.createObjectURL(audio)
+      const player = playerRef.current
+      if (!player) throw new Error('재생 플레이어를 찾을 수 없습니다.')
+      player.src = url
+      setAudioUrl(url)
       setError('')
+      try {
+        await player.play()
+        setPlayingAudio(true)
+      } catch {
+        setError('재생을 시작하지 못했어요. 다시 눌러 주세요.')
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '녹음을 불러오지 못했습니다.')
+    } finally {
+      setLoadingAudio(false)
     }
   }
 
+  function togglePlayback() {
+    const player = playerRef.current
+    if (playingAudio) {
+      player?.pause()
+      return
+    }
+    void loadAudio()
+  }
+
+  function seekAudio(value: string) {
+    const time = Number(value)
+    if (!Number.isFinite(time)) return
+    setPlaybackTime(time)
+    if (playerRef.current) playerRef.current.currentTime = time
+  }
+
   async function remove() {
-    if (!window.confirm('이 녹음을 삭제할까요?')) return
-    await deleteRecording(token, recording.id)
-    onDeleted(recording.id)
+    if (deleting || renaming || !window.confirm('이 녹음을 삭제할까요?')) return
+    setDeleting(true)
+    setError('')
+    try {
+      await deleteRecording(token, recording.id)
+      onDeleted(recording.id)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '녹음을 삭제하지 못했습니다.')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
     <Card className="voice-take-card">
+      <form className="voice-name-editor" onSubmit={(event) => { event.preventDefault(); void saveName() }}>
+        <label>목소리 이름<input aria-label="목소리 이름" maxLength={80} value={name} disabled={renaming || deleting} onChange={(event) => setName(event.target.value)} /></label>
+        <Button type="submit" variant="secondary" disabled={renaming || deleting || !name.trim() || name.trim() === recording.name}>{renaming ? '저장 중' : '이름 저장'}</Button>
+      </form>
       <div className="voice-take-toolbar">
         <div className="voice-take-meta">
-          <span className="voice-take-wave" aria-hidden="true">〰</span>
+          <span className="voice-take-wave" aria-hidden="true">♡</span>
           <time dateTime={recording.created_at}>{formatRecordingDate(recording.created_at)}</time>
           <span className="voice-take-duration">{Math.round(recording.duration_seconds)}초</span>
         </div>
         <div className="voice-take-actions">
-          {!audioUrl && <Button variant="primary" onClick={() => void loadAudio()}><span aria-hidden="true">▶</span> 듣기</Button>}
-          <Button className="voice-delete-button" variant="ghost" aria-label="녹음 삭제" title="녹음 삭제" onClick={() => void remove()}>
+          <Button className={`voice-take-action voice-take-action--play${playingAudio ? ' voice-take-action--playing' : ''}`} variant={playingAudio ? 'primary' : 'secondary'} onClick={togglePlayback} disabled={loadingAudio}>
+            <span aria-hidden="true">{loadingAudio ? '◌' : playingAudio ? 'Ⅱ' : '▶'}</span>{loadingAudio ? '불러오는 중' : playingAudio ? '일시정지' : audioUrl ? playbackTime > 0 && playbackTime < audioDuration ? '이어 듣기' : '다시 듣기' : '듣기'}
+          </Button>
+          <Button className="voice-take-action voice-take-action--delete" variant="secondary" aria-label="녹음 삭제" title="녹음 삭제" disabled={deleting || renaming} aria-busy={deleting} onClick={() => void remove()}>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m4 4v6m4-6v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            삭제
           </Button>
         </div>
       </div>
-      {audioUrl && <audio className="voice-take-player" controls src={audioUrl} aria-label="저장된 내 음성 재생" />}
       <section className="transcript-reading-page" aria-label="저장한 녹음 대본">
         <p className="storybook-reading-page__text voice-take-transcript">{recording.transcript}</p>
       </section>
+      <div className={`voice-take-playback warm-audio-playback${audioUrl ? '' : ' warm-audio-playback--empty'}`}>
+        <audio ref={playerRef} className="warm-audio-media" aria-label="저장된 음성 재생" onLoadedMetadata={(event) => setAudioDuration(event.currentTarget.duration || recording.duration_seconds)} onTimeUpdate={(event) => setPlaybackTime(event.currentTarget.currentTime)} onPlay={() => setPlayingAudio(true)} onPause={() => setPlayingAudio(false)} onEnded={() => setPlayingAudio(false)} />
+        {audioUrl && <>
+          <input className="warm-audio-seek" type="range" min="0" max={audioDuration || recording.duration_seconds} step="0.1" value={Math.min(playbackTime, audioDuration || recording.duration_seconds)} aria-label="재생 위치" aria-valuetext={`${formatAudioTime(playbackTime)} / ${formatAudioTime(audioDuration || recording.duration_seconds)}`} onChange={(event) => seekAudio(event.currentTarget.value)} />
+          <div className="warm-audio-time"><time>{formatAudioTime(playbackTime)}</time><time>{formatAudioTime(audioDuration || recording.duration_seconds)}</time></div>
+        </>}
+      </div>
       {error && <p role="alert" className="recorder-error">{error}</p>}
     </Card>
   )
@@ -103,20 +186,42 @@ function formatRecordingDate(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
 }
 
-function GenerationPage({ onNavigate, token, recordings, initialText, draftSource, onOutputCreated }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; initialText?: string; draftSource?: 'recording' | 'storybook'; onOutputCreated: (output: LocalOutput) => void }) {
+function formatAudioTime(seconds: number): string {
+  if (!Number.isFinite(seconds)) return '0:00'
+  const total = Math.max(0, Math.floor(seconds))
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+}
+
+function GenerationPage({ onNavigate, token, recordings, initialText, initialTitle, onOutputCreated }: { onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; initialText?: string; initialTitle?: string; onOutputCreated: (output: LocalOutput) => void }) {
   return (
     <div className="page-stack">
-      <PageHeading title="음성 생성" />
-      {token ? <GenerationWorkspace token={token} recordings={recordings} initialText={initialText} draftSource={draftSource} onOutputCreated={onOutputCreated} onNavigate={() => onNavigate('record')} /> : <Card title="로컬 앱 연결 필요" description="위쪽에서 PC 로컬 앱을 연결하면 설치된 모델과 참조 녹음이 표시됩니다." />}
+      <PageHeading title="음성 만들기" />
+      {token ? <GenerationWorkspace token={token} recordings={recordings} initialText={initialText} initialTitle={initialTitle} onOutputCreated={onOutputCreated} onNavigate={(route) => onNavigate(route)} /> : <Card title="PC 앱 연결 필요" />}
     </div>
   )
 }
 
-function ResultsPage({ onNavigate, token, outputs, onOutputDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; outputs: LocalOutput[]; onOutputDeleted: (id: string) => void }) {
+function StudioPage({ recordings, outputs, isChildMode, onChangeMode, onNavigate, onOpenStory, onGenerateStory, onOpenOutput, onComposeText }: { recordings: LocalRecording[]; outputs: LocalOutput[]; isChildMode: boolean; onChangeMode: (isChildMode: boolean) => void; onNavigate: (route: AppRoute) => void; onOpenStory: (story: Storybook) => void; onGenerateStory: (story: Storybook) => void; onOpenOutput: (output: LocalOutput) => void; onComposeText: () => void }) {
+  return <StudioHome
+    recordings={recordings}
+    outputs={outputs}
+    isChildMode={isChildMode}
+    onChangeMode={onChangeMode}
+    onRegisterVoice={() => onNavigate('record')}
+    onManageVoices={() => onNavigate('voices')}
+    onOpenStory={onOpenStory}
+    onGenerateStory={onGenerateStory}
+    onOpenOutput={onOpenOutput}
+    onComposeText={onComposeText}
+  />
+}
+
+function ResultsPage({ onNavigate, token, outputs, selectedOutputId, onOutputDeleted }: { onNavigate: (route: AppRoute) => void; token: string | null; outputs: LocalOutput[]; selectedOutputId: string | null; onOutputDeleted?: (id: string) => void }) {
+  const visibleOutputs = selectedOutputId ? outputs.filter((output) => output.id === selectedOutputId) : outputs
   return (
     <div className="page-stack">
-      <PageHeading title="생성 결과" />
-      {token && outputs.length > 0 ? <div className="audio-output-list">{outputs.map((output) => <AudioOutputCard key={output.id} token={token} output={output} onDeleted={onOutputDeleted} />)}</div> : <Card className="empty-card audio-output-empty">
+      <PageHeading title="만든 음성" />
+      {token && visibleOutputs.length > 0 ? <div className="audio-output-list">{visibleOutputs.map((output) => <AudioOutputCard key={output.id} token={token} output={output} onDeleted={onOutputDeleted} showTechnicalDetails={false} />)}</div> : <Card className="empty-card audio-output-empty">
         <div className="empty-state">
           <span className="empty-state__icon audio-output-empty-wave" aria-hidden="true">〰</span>
           <h2>아직 생성된 오디오가 없습니다</h2>
@@ -128,30 +233,6 @@ function ResultsPage({ onNavigate, token, outputs, onOutputDeleted }: { onNaviga
 }
 
 function SettingsPage({ systemInfo, token }: { systemInfo: RuntimeSystem | null; token: string | null }) {
-  const [modelState, setModelState] = useState<'checking' | 'installed' | 'not_installed' | 'installing' | 'unknown'>('checking')
-
-  useEffect(() => {
-    let active = true
-    if (!token) {
-      setModelState('unknown')
-      return () => { active = false }
-    }
-    void listModels(token).then((models) => {
-      if (!active) return
-      const model = models.find((item) => item.id === 'qwen3-tts-0.6b-base')
-      setModelState(model?.status ?? 'not_installed')
-    }).catch(() => { if (active) setModelState('unknown') })
-    return () => { active = false }
-  }, [token])
-
-  const modelStatus = {
-    checking: { icon: '◌', label: '음성 모델 확인 중', className: 'settings-status--checking' },
-    installed: { icon: '✓', label: '음성 모델 설치됨', className: 'settings-status--success' },
-    installing: { icon: '↓', label: '음성 모델 설치 중', className: 'settings-status--checking' },
-    not_installed: { icon: '↓', label: '음성 모델 설치 필요', className: 'settings-status--warning' },
-    unknown: { icon: '!', label: '음성 모델 확인 필요', className: 'settings-status--warning' },
-  }[modelState]
-
   const sections = [
     {
       id: 'install', label: '설치 및 연결', icon: '↓', content: <Card className="settings-install-card">
@@ -175,8 +256,8 @@ function SettingsPage({ systemInfo, token }: { systemInfo: RuntimeSystem | null;
         <div className="settings-status-grid">
           <div className="settings-status-tile"><strong>PC 앱</strong><span className={`settings-status-icon ${systemInfo ? 'settings-status--success' : 'settings-status--warning'}`} role="img" aria-label={systemInfo ? 'PC 앱 연결됨' : 'PC 앱 연결 필요'}>{systemInfo ? '✓' : '!'}</span></div>
           <div className="settings-status-tile"><strong>로컬 권한</strong><span className={`settings-status-icon ${systemInfo ? 'settings-status--success' : 'settings-status--warning'}`} role="img" aria-label={systemInfo ? '로컬 권한 허용됨' : '로컬 권한 확인 필요'}>{systemInfo ? '✓' : '!'}</span></div>
-          <div className="settings-status-tile"><strong>Qwen3-TTS</strong><span className={`settings-status-icon ${modelStatus.className}`} role="img" aria-label={modelStatus.label}>{modelStatus.icon}</span></div>
         </div>
+        <ModelSettings token={token} />
         {systemInfo && <div className="settings-resource-grid" aria-label="이 PC 실행 자원">
           <div className="settings-resource-tile"><span>OS</span><strong>{systemInfo.os} · {systemInfo.architecture}</strong></div>
           <div className="settings-resource-tile"><span>CPU</span><strong>{systemInfo.cpu_logical_count ?? '—'} 코어</strong></div>
@@ -206,33 +287,68 @@ function SettingsPage({ systemInfo, token }: { systemInfo: RuntimeSystem | null;
   )
 }
 
-function CurrentPage({ route, onNavigate, token, recordings, outputs, systemInfo, generationDraft, onGenerateStory, onRecordingSaved, onRecordingDeleted, onOutputCreated, onOutputDeleted }: { route: AppRoute; onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; outputs: LocalOutput[]; systemInfo: RuntimeSystem | null; generationDraft: { text: string; source: 'recording' | 'storybook' } | null; onGenerateStory: (text: string) => void; onRecordingSaved: (recording: LocalRecording) => void; onRecordingDeleted: (id: string) => void; onOutputCreated: (output: LocalOutput) => void; onOutputDeleted: (id: string) => void }) {
+function CurrentPage({ onUnsavedRecordingChange, route, onNavigate, token, recordings, outputs, systemInfo, generationDraft, selectedStoryId, selectedOutputId, isChildMode, onChangeMode, onGenerateText, onStartStoryGeneration, onRecordingSaved, onRecordingDeleted, onRecordingRenamed, onOutputCreated, onOutputDeleted, onOpenStory, onOpenOutput, onComposeText }: {
+  onUnsavedRecordingChange: (unsaved: boolean) => void;
+  route: AppRoute; onNavigate: (route: AppRoute) => void; token: string | null; recordings: LocalRecording[]; outputs: LocalOutput[]; systemInfo: RuntimeSystem | null;
+  isChildMode: boolean; onChangeMode: (isChildMode: boolean) => void;
+  generationDraft: { text: string; source: 'recording' | 'storybook' | 'manual'; bookId?: string } | null; selectedStoryId: string | null; selectedOutputId: string | null;
+  onGenerateText: (text: string) => void; onStartStoryGeneration: (story: Storybook) => void; onRecordingSaved: (recording: LocalRecording) => void;
+  onRecordingRenamed: (recording: LocalRecording) => void;
+  onRecordingDeleted: (id: string) => void; onOutputCreated: (output: LocalOutput) => void; onOutputDeleted: (id: string) => void;
+  onOpenStory: (story: Storybook) => void; onOpenOutput: (output: LocalOutput) => void; onComposeText: () => void;
+}) {
   switch (route) {
+    case 'studio':
+      return <StudioPage recordings={recordings} outputs={outputs} isChildMode={isChildMode} onChangeMode={onChangeMode} onNavigate={onNavigate} onOpenStory={onOpenStory} onGenerateStory={onStartStoryGeneration} onOpenOutput={onOpenOutput} onComposeText={onComposeText} />
     case 'record':
-      return <RecordingPage onNavigate={onNavigate} token={token} recordings={recordings} onSaved={onRecordingSaved} />
+      return <RecordingPage onNavigate={onNavigate} token={token} recordings={recordings} onSaved={onRecordingSaved} onUnsavedChange={onUnsavedRecordingChange} />
     case 'storybook':
-      return <StorybookPage onGenerateSpeech={onGenerateStory} />
+      return <StorybookPage
+        initialStory={storybooks.find((story) => story.id === selectedStoryId) ?? null}
+        onGenerateSpeech={onGenerateText}
+        token={token}
+        recordings={recordings}
+        outputs={outputs}
+        onOutputDeleted={onOutputDeleted}
+        onRegisterVoice={() => onNavigate('record')}
+        onBack={() => onNavigate('studio')}
+        listenOnly={isChildMode}
+      />
     case 'voices':
-      return <VoicesPage onNavigate={onNavigate} token={token} recordings={recordings} onDeleted={onRecordingDeleted} />
+      return <VoicesPage onNavigate={onNavigate} token={token} recordings={recordings} onDeleted={onRecordingDeleted} onRenamed={onRecordingRenamed} />
     case 'generate':
-      return <GenerationPage onNavigate={onNavigate} token={token} recordings={recordings} initialText={generationDraft?.text} draftSource={generationDraft?.source} onOutputCreated={onOutputCreated} />
+      return <GenerationPage onNavigate={onNavigate} token={token} recordings={recordings} initialText={generationDraft?.text} initialTitle={generationDraft?.bookId ? storybooks.find((story) => story.id === generationDraft.bookId)?.title : undefined} onOutputCreated={onOutputCreated} />
     case 'results':
-      return <ResultsPage onNavigate={onNavigate} token={token} outputs={outputs} onOutputDeleted={onOutputDeleted} />
+      return <ResultsPage onNavigate={onNavigate} token={token} outputs={outputs} selectedOutputId={selectedOutputId} onOutputDeleted={isChildMode ? undefined : onOutputDeleted} />
     case 'settings':
       return <SettingsPage systemInfo={systemInfo} token={token} />
   }
 }
 
 export function App() {
-  const [activeRoute, setActiveRoute] = useState<AppRoute>('record')
+  useExclusivePlayback()
+  const [unsavedRecording, setUnsavedRecording] = useState(false)
+  const [activeRoute, setActiveRoute] = useState<AppRoute>('studio')
+  const [isChildMode, setIsChildMode] = useState(false)
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
   const [runtimeToken, setRuntimeToken] = useState<string | null>(null)
   const [recordings, setRecordings] = useState<LocalRecording[]>([])
   const [outputs, setOutputs] = useState<LocalOutput[]>([])
   const [systemInfo, setSystemInfo] = useState<RuntimeSystem | null>(null)
-  const [generationDraft, setGenerationDraft] = useState<{ text: string; source: 'recording' | 'storybook' } | null>(null)
+  const [generationDraft, setGenerationDraft] = useState<{ text: string; source: 'recording' | 'storybook' | 'manual'; bookId?: string } | null>(null)
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null)
+  const [selectedOutputId, setSelectedOutputId] = useState<string | null>(null)
+
+  function navigate(route: AppRoute) {
+    if (route === activeRoute) return
+    if (unsavedRecording && !window.confirm('저장하지 않은 녹음이 있습니다. 녹음을 버리고 이동할까요?')) return
+    if (route === 'results') setSelectedOutputId(null)
+    if (activeRoute === 'generate') setGenerationDraft(null)
+    setActiveRoute(route)
+  }
 
   async function connectRuntime(code?: string) {
+    const hasExistingSession = runtimeToken !== null
     setConnectionState('checking')
     try {
       await getRuntimeHealth()
@@ -244,7 +360,7 @@ export function App() {
       setOutputs(savedOutputs)
       setSystemInfo(system)
       setRuntimeToken(session.access_token)
-      setActiveRoute('record')
+      if (!hasExistingSession) setActiveRoute('studio')
       setConnectionState('connected')
     } catch (error) {
       setConnectionState(error instanceof LocalRuntimeError && error.code === 'local_access_blocked' ? 'permission-denied' : 'error')
@@ -254,13 +370,35 @@ export function App() {
 
   function handleRecordingSaved(recording: LocalRecording) {
     setRecordings((current) => [recording, ...current.filter((item) => item.id !== recording.id)])
-    setGenerationDraft({ text: recording.transcript, source: 'recording' })
-    setActiveRoute('generate')
+    setGenerationDraft({ text: '', source: 'recording' })
+    setActiveRoute('studio')
   }
 
   function handleStoryGenerate(text: string) {
-    setGenerationDraft({ text, source: 'storybook' })
+    setGenerationDraft({ text, source: selectedStoryId ? 'storybook' : 'manual', bookId: selectedStoryId ?? undefined })
     setActiveRoute('generate')
+  }
+
+  function startStoryGeneration(story: Storybook) {
+    setSelectedStoryId(story.id)
+    setGenerationDraft({ text: storyScript(story), source: 'storybook', bookId: story.id })
+    setActiveRoute('generate')
+  }
+
+  function composeText() {
+    setSelectedStoryId(null)
+    setGenerationDraft({ text: '', source: 'manual' })
+    setActiveRoute('generate')
+  }
+
+  function openStory(story: Storybook) {
+    setSelectedStoryId(story.id)
+    setActiveRoute('storybook')
+  }
+
+  function openOutput(output: LocalOutput) {
+    setSelectedOutputId(output.id)
+    setActiveRoute('results')
   }
 
   function handleRecordingDeleted(id: string) {
@@ -269,22 +407,41 @@ export function App() {
 
   function handleOutputCreated(output: LocalOutput) {
     setOutputs((current) => [output, ...current.filter((item) => item.id !== output.id)])
+
   }
 
   function handleOutputDeleted(id: string) {
     setOutputs((current) => current.filter((item) => item.id !== id))
+    if (selectedOutputId === id) setSelectedOutputId(null)
   }
 
-  function reconnectRuntime() {
-    setRuntimeToken(null)
-    setConnectionState('disconnected')
-    setRecordings([])
-    setOutputs([])
-    setSystemInfo(null)
-    setActiveRoute('record')
+  async function reconnectRuntime() {
+    try {
+      await connectRuntime()
+    } catch {
+      // connectRuntime publishes the disconnected state for the header indicator.
+    }
   }
 
-  const setupComplete = runtimeToken !== null && connectionState === 'connected'
+  useEffect(() => {
+    if (!runtimeToken || connectionState === 'checking') return
+    let cancelled = false
+    const checkConnection = async () => {
+      try {
+        await getRuntimeHealth()
+        if (!cancelled) setConnectionState('connected')
+      } catch (error) {
+        if (!cancelled) setConnectionState(error instanceof LocalRuntimeError && error.code === 'local_access_blocked' ? 'permission-denied' : 'error')
+      }
+    }
+    const interval = window.setInterval(() => void checkConnection(), 10_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [connectionState, runtimeToken])
+
+  const setupComplete = runtimeToken !== null
 
   if (!setupComplete) {
     return <SetupScreen
@@ -293,10 +450,10 @@ export function App() {
   }
 
   return (
-    <AppShell activeRoute={activeRoute} onNavigate={setActiveRoute} connectionState={connectionState} onReconnect={reconnectRuntime}>
+    <AppShell activeRoute={activeRoute} onNavigate={navigate} connectionState={connectionState} onReconnect={reconnectRuntime} isChildMode={isChildMode}>
       <div className="page-stack app-page-stack">
-        {connectionState !== 'connected' && <ConnectionStatus state={connectionState} onPair={connectRuntime} onReconnect={runtimeToken ? reconnectRuntime : undefined} />}
-        <CurrentPage route={activeRoute} onNavigate={setActiveRoute} token={runtimeToken} recordings={recordings} outputs={outputs} systemInfo={systemInfo} generationDraft={generationDraft} onGenerateStory={handleStoryGenerate} onRecordingSaved={handleRecordingSaved} onRecordingDeleted={handleRecordingDeleted} onOutputCreated={handleOutputCreated} onOutputDeleted={handleOutputDeleted} />
+        {connectionState !== 'connected' && !isChildMode && <ConnectionStatus state={connectionState} />}
+        <CurrentPage onUnsavedRecordingChange={setUnsavedRecording} route={activeRoute} onNavigate={navigate} token={runtimeToken} recordings={recordings} outputs={outputs} systemInfo={systemInfo} generationDraft={generationDraft} selectedStoryId={selectedStoryId} selectedOutputId={selectedOutputId} isChildMode={isChildMode} onChangeMode={setIsChildMode} onGenerateText={handleStoryGenerate} onStartStoryGeneration={startStoryGeneration} onRecordingSaved={handleRecordingSaved} onRecordingRenamed={(recording) => setRecordings((items) => items.map((item) => item.id === recording.id ? recording : item))} onRecordingDeleted={handleRecordingDeleted} onOutputCreated={handleOutputCreated} onOutputDeleted={handleOutputDeleted} onOpenStory={openStory} onOpenOutput={openOutput} onComposeText={composeText} />
       </div>
     </AppShell>
   )

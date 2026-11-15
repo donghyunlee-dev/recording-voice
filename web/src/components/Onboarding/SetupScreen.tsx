@@ -1,6 +1,6 @@
 import { Button, Card, Typography, WizardForm } from '@windsoft/ui'
 import { useEffect, useState } from 'react'
-import { getRuntimeHealth } from '../../api/localRuntime'
+import { getRuntimeHealth, LocalRuntimeError } from '../../api/localRuntime'
 
 interface SetupScreenProps {
   onPair: (code?: string) => Promise<void>
@@ -31,11 +31,12 @@ export function SetupScreen({ onPair }: SetupScreenProps) {
   )
 }
 
-type SetupStage = 'checking' | 'unavailable' | 'install' | 'detect' | 'ready' | 'pairing'
+type SetupStage = 'checking' | 'update' | 'unavailable' | 'install' | 'detect' | 'ready' | 'pairing'
 
 const stageHeading: Record<Exclude<SetupStage, 'install'>, string> = {
   checking: 'PC 앱을 확인하고 있어요',
   unavailable: 'PC 앱을 찾지 못했어요',
+  update: 'PC 앱 업데이트가 필요합니다',
   detect: 'PC 앱을 확인하고 있어요',
   ready: 'PC 앱을 찾았어요',
   pairing: 'PC 앱을 연결하고 있어요',
@@ -61,7 +62,7 @@ function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
     }).catch((reason: unknown) => {
       if (active) {
         setError(reason instanceof Error ? reason.message : 'PC 앱에 연결할 수 없습니다.')
-        setStage('unavailable')
+        setStage(reason instanceof LocalRuntimeError && reason.code === 'runtime_update_required' ? 'update' : 'unavailable')
       }
     })
     return () => { active = false }
@@ -103,7 +104,7 @@ function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'PC 앱에 연결할 수 없습니다.')
-      setStage('unavailable')
+      setStage(reason instanceof LocalRuntimeError && reason.code === 'runtime_update_required' ? 'update' : 'unavailable')
     }
   }
 
@@ -195,7 +196,7 @@ function RuntimeSetupStep({ onPair, onStageChange }: RuntimeSetupStepProps) {
   return (
     <section className="setup-current" aria-label="PC 앱 연결">
       <Card className="setup-current__card">
-        <span className="setup-state-indicator setup-state-indicator--unavailable" aria-label="PC 앱을 찾지 못함" role="img">!</span>
+        <span className="setup-state-indicator setup-state-indicator--unavailable" aria-label={stage === 'update' ? 'PC 앱 업데이트 필요' : 'PC 앱을 찾지 못함'} role="img">!</span>
         {error && <p role="alert" className="recorder-error">{error}</p>}
         <div className="setup-current__actions">
           <Button variant="primary" size="lg" onClick={() => void findRuntime()}>연결 다시 확인</Button>

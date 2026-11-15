@@ -12,7 +12,7 @@ describe('SetupScreen', () => {
   it('pairs automatically when the Windows app is detected', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', os: 'Windows' }),
+      json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'], os: 'Windows' }),
     }))
     const onPair = vi.fn().mockResolvedValue(undefined)
 
@@ -21,6 +21,17 @@ describe('SetupScreen', () => {
     expect(await screen.findByRole('progressbar', { name: 'PC 앱 연결 중' })).toBeVisible()
     expect(onPair).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: '이 PC에 연결' })).not.toBeInTheDocument()
+  })
+
+  it('directs older apps to installation without pairing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok', os: 'Windows', api_version: 'v1', version: '0.1.0' }) }))
+    const onPair = vi.fn()
+    render(<SetupScreen onPair={onPair} />)
+    expect(await screen.findByRole('heading', { name: 'PC 앱 업데이트가 필요합니다' })).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent('최신 설치 프로그램')
+    expect(onPair).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: '설치 안내' }))
+    expect(screen.getByRole('link', { name: 'Windows 설치 프로그램 다운로드' })).toBeVisible()
   })
 
   it('uses an unavailable-state heading and keeps retry and install actions', async () => {
@@ -39,7 +50,7 @@ describe('SetupScreen', () => {
     const onPair = vi.fn(() => new Promise<void>((_, reject) => { rejectPairing = reject }))
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', os: 'Windows' }),
+      json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'], os: 'Windows' }),
     }))
 
     render(<SetupScreen onPair={onPair} />)

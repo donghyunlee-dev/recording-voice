@@ -1,8 +1,19 @@
-import { Button, Card, FormField, Textarea } from '@windsoft/ui'
-import { useEffect, useState } from 'react'
-import { cancelJob, createGeneration, getJob, installModel, listModels, type LocalModel, type LocalOutput, type LocalRecording, type RuntimeJob } from '../../api/localRuntime'
-import { AudioOutputCard } from '../results/AudioOutputCard'
+import { Button, Card, Textarea } from '@windsoft/ui'
+import { useEffect, useRef, useState } from 'react'
+import { listJobs, createWorkspace, saveWorkspace, listWorkspaces, selectWorkspaceOutput, type LocalWorkspace, createGeneration, getJob, getRecordingAudio, listOutputs, listModels, type LocalModel, type LocalOutput, type LocalRecording, type RuntimeJob } from '../../api/localRuntime'
 import { ChoiceCardGroup } from '../../components/ChoiceCardGroup'
+import { getVoiceName, saveOutputTitle } from '../studio/localMetadata'
+
+import { AudioOutputCard } from '../results/AudioOutputCard'
+
+function readDraft(): { text?: string; title?: string; recordingId?: string; workId?: string; modelId?: string; intensity?: number } {
+  try {
+    const value: unknown = JSON.parse(sessionStorage.getItem('voice-studio.generation-draft') ?? '{}')
+    if (!value || typeof value !== 'object') return {}
+    const draft = value as Record<string, unknown>
+    return { modelId: typeof draft.modelId === 'string' ? draft.modelId : undefined, intensity: typeof draft.intensity === 'number' && Number.isFinite(draft.intensity) && draft.intensity >= 0 && draft.intensity <= 1 ? draft.intensity : undefined, text: typeof draft.text === 'string' ? draft.text : undefined, title: typeof draft.title === 'string' ? draft.title : undefined, recordingId: typeof draft.recordingId === 'string' ? draft.recordingId : undefined, workId: typeof draft.workId === 'string' ? draft.workId : undefined }
+  } catch { return {} }
+}
 
 const baselineModel = 'qwen3-tts-0.6b-base'
 
@@ -10,29 +21,160 @@ interface GenerationWorkspaceProps {
   token: string
   recordings: LocalRecording[]
   initialText?: string
-  draftSource?: 'recording' | 'storybook'
+  initialTitle?: string
   onOutputCreated: (output: LocalOutput) => void
-  onNavigate: (route: 'record') => void
+  onNavigate: (route: 'record' | 'settings') => void
 }
 
-export function GenerationWorkspace({ token, recordings, initialText, draftSource, onOutputCreated, onNavigate }: GenerationWorkspaceProps) {
+export function GenerationWorkspace({ token, recordings, initialText, initialTitle, onOutputCreated, onNavigate }: GenerationWorkspaceProps) {
+  const draft = useRef(initialText !== undefined ? {} : readDraft())
+  const restoredWorkId = useRef(draft.current.workId)
+  const [works, setWorks] = useState<LocalWorkspace[]>([])
+  const [work, setWork] = useState<LocalWorkspace | null>(null)
+  const [jobsLoaded, setJobsLoaded] = useState(false)
+  const [recentJobs, setRecentJobs] = useState<RuntimeJob[]>([])
+  const [worksLoaded, setWorksLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [workStatus, setWorkStatus] = useState('')
   const [models, setModels] = useState<LocalModel[]>([])
-  const [recordingId, setRecordingId] = useState(recordings[0]?.id ?? '')
-  const [modelId, setModelId] = useState(baselineModel)
-  const [text, setText] = useState(initialText ?? '안녕하세요. 오늘은 제가 좋아하는 책을 읽어보겠습니다.')
+  const [recordingId, setRecordingId] = useState(() => draft.current.recordingId ?? recordings[0]?.id ?? '')
+  const [modelId, setModelId] = useState(() => draft.current.modelId ?? baselineModel)
+  const [intensity, setIntensity] = useState(() => draft.current.intensity ?? 0.5)
+  const expressionEnabled = modelId === 'chatterbox-multilingual-v2' || models.find((item) => item.id === modelId)?.supports_expression === true
+  const [text, setText] = useState(() => initialText ?? draft.current.text ?? '')
+  const [title, setTitle] = useState(() => initialTitle ?? draft.current.title ?? '')
   const [job, setJob] = useState<RuntimeJob | null>(null)
   const [error, setError] = useState('')
   const [checking, setChecking] = useState(true)
-  const [acceptLicense, setAcceptLicense] = useState(false)
-
+  const [history, setHistory] = useState<LocalOutput[]>([])
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   useEffect(() => {
-    if (!recordingId && recordings[0]) setRecordingId(recordings[0].id)
-  }, [recordings, recordingId])
+    if (!worksLoaded) return
+    try { sessionStorage.setItem('voice-studio.generation-draft', JSON.stringify({ text, title, recordingId, modelId, intensity, workId: work?.id ?? restoredWorkId.current })) }
+    catch { setError('초안을 보관하지 못했습니다. 화면을 이동하기 전에 텍스트를 복사해 주세요.') }
+  }, [text, title, recordingId, modelId, intensity, work, worksLoaded])
+  const submitLock = useRef(false)
+  const previewRequest = useRef(0)
 
   useEffect(() => {
     let active = true
-    void listModels(token).then((items) => { if (active) setModels(items) }).catch((reason) => {
-      if (active) setError(reason instanceof Error ? reason.message : '모델 상태를 불러오지 못했습니다.')
+    void listOutputs(token).then((items) => { if (active) setHistory(items) }).catch(() => { if (active) setError('생성 이력을 불러오지 못했습니다.') })
+    return () => { active = false }
+  }, [token])
+
+  useEffect(() => {
+    previewRequest.current += 1
+    setPreviewUrl('')
+    setPreviewLoading(false)
+  }, [recordingId])
+
+  useEffect(() => () => { previewRequest.current += 1 }, [])
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
+
+  useEffect(() => {
+    let active = true
+    void listWorkspaces(token).then((items) => {
+      if (!active) return
+      const restored = items.find((item) => item.id === restoredWorkId.current) ?? null
+      setWorks(items)
+      setWork(restored)
+      if (restored) {
+        if (draft.current.modelId === undefined) setModelId(restored.generation_settings?.model_id ?? baselineModel)
+        if (draft.current.intensity === undefined) setIntensity(restored.generation_settings?.expression_intensity ?? 0.5)
+        if (draft.current.text === undefined) setText(restored.text)
+        if (draft.current.title === undefined) setTitle(restored.title)
+        if (draft.current.recordingId === undefined) setRecordingId(restored.recording_id ?? '')
+      }
+      setWorksLoaded(true)
+    }).catch(() => { if (active) setError('작업 목록을 불러오지 못했습니다. PC 앱 버전과 연결을 확인해 주세요.') })
+    return () => { active = false }
+  }, [token])
+
+  useEffect(() => {
+    let active = true
+    void listJobs(token).then((items) => {
+      if (!active) return
+      const pending = items.find((item) => item.kind === 'generation' && !['completed', 'failed', 'cancelled'].includes(item.status))
+      setRecentJobs(items)
+      const latest = restoredWorkId.current ? items.find((item) => item.kind === 'generation' && item.workspace_id === restoredWorkId.current) : undefined
+      const restored = pending ?? (latest?.status === 'failed' ? latest : undefined)
+      if (restored) {
+        setJob(restored)
+        if (restored.status === 'failed') setError(jobError(restored.error_code))
+      }
+      setJobsLoaded(true)
+    }).catch(() => { if (active) setError('진행 중인 작업을 확인하지 못했습니다. 연결을 확인한 뒤 다시 열어 주세요.') })
+    return () => { active = false }
+  }, [token])
+
+  function rememberWork(saved: LocalWorkspace) {
+    restoredWorkId.current = saved.id
+    setWork(saved)
+    setWorks((items) => [saved, ...items.filter((item) => item.id !== saved.id)])
+  }
+
+  async function persistWork() {
+    const current = work ?? await createWorkspace(token, title.trim() || '제목 없는 작업')
+    // Retain the created identity even if the following save fails.
+    if (!work) rememberWork(current)
+    const saved = await saveWorkspace(token, current.id, title.trim() || '제목 없는 작업', text, recordingId || null, { model_id: modelId, ...(expressionEnabled ? { expression_intensity: intensity } : {}) })
+    rememberWork(saved)
+    setWorkStatus('저장됨')
+    return saved
+  }
+
+  async function saveWork() {
+    setSaving(true)
+    setError('')
+    try { await persistWork() }
+    catch (reason) { setError(reason instanceof Error ? reason.message : '작업을 저장하지 못했습니다.') }
+    finally { setSaving(false) }
+  }
+
+  function openWork(id: string) {
+    const dirty = work ? text !== work.text || title !== work.title || recordingId !== (work.recording_id ?? '') || modelId !== (work.generation_settings?.model_id ?? baselineModel) || (expressionEnabled && intensity !== (work.generation_settings?.expression_intensity ?? 0.5)) : Boolean(text || title)
+    if (dirty && !window.confirm('저장하지 않은 변경 사항을 버리고 작업을 전환할까요?')) return
+    const next = works.find((item) => item.id === id) ?? null
+    restoredWorkId.current = next?.id
+    setWork(next)
+    setModelId(next?.generation_settings?.model_id ?? baselineModel)
+    setIntensity(next?.generation_settings?.expression_intensity ?? 0.5)
+    setText(next?.text ?? '')
+    setTitle(next?.title ?? '')
+    setRecordingId(next ? next.recording_id ?? '' : recordings[0]?.id ?? '')
+    const latest = next ? recentJobs.find((item) => item.kind === 'generation' && item.workspace_id === next.id) : undefined
+    setJob(latest?.status === 'failed' ? latest : null)
+    setError(latest?.status === 'failed' ? jobError(latest.error_code) : '')
+    setWorkStatus(next ? '저장된 작업' : '새 작업')
+  }
+
+  async function selectFinal(outputId: string) {
+    if (!work) return
+    setSaving(true)
+    try { rememberWork(await selectWorkspaceOutput(token, work.id, outputId)) }
+    catch (reason) { setError(reason instanceof Error ? reason.message : '최종 결과를 선택하지 못했습니다.') }
+    finally { setSaving(false) }
+  }
+
+  async function previewVoice() {
+    const request = ++previewRequest.current
+    setPreviewLoading(true)
+    try {
+      const audio = await getRecordingAudio(token, recordingId)
+      if (request === previewRequest.current) setPreviewUrl(URL.createObjectURL(audio))
+    } catch (reason) {
+      if (request === previewRequest.current) setError(reason instanceof Error ? reason.message : '목소리를 불러오지 못했습니다.')
+    } finally {
+      if (request === previewRequest.current) setPreviewLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+    void listModels(token).then((items) => { if (active) setModels(items) }).catch(() => {
+      if (active) setError('음성을 만들 준비를 못했어요. 설정을 확인해 주세요.')
     }).finally(() => { if (active) setChecking(false) })
     return () => { active = false }
   }, [token])
@@ -40,143 +182,152 @@ export function GenerationWorkspace({ token, recordings, initialText, draftSourc
   useEffect(() => {
     if (!job || ['completed', 'failed', 'cancelled'].includes(job.status)) return
     let active = true
+    let inFlight = false
     const poll = window.setInterval(() => {
+      if (inFlight) return
+      inFlight = true
       void getJob(token, job.id).then((next) => {
         if (!active) return
         setJob(next)
-        if (next.status === 'completed' && next.output) onOutputCreated(next.output)
-        if (next.status === 'completed' && next.kind === 'model_install') {
-          void listModels(token).then(setModels)
+        setRecentJobs((items) => [next, ...items.filter((item) => item.id !== next.id)])
+        if (next.status === 'completed' && next.output) {
+          const outputTitle = works.find((item) => item.id === next.workspace_id)?.title || initialTitle || title.trim() || '만든 음성'
+          saveOutputTitle(next.output.id, outputTitle)
+          setHistory((items) => [next.output!, ...items.filter((item) => item.id !== next.output!.id)])
+          onOutputCreated(next.output)
         }
         if (next.status === 'failed') setError(jobError(next.error_code))
-      }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : '작업 상태를 확인하지 못했습니다.') })
+      }).catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : '작업 상태를 확인하지 못했습니다.') }).finally(() => { inFlight = false })
     }, 1500)
     return () => { active = false; window.clearInterval(poll) }
-  }, [job, token, onOutputCreated])
+  }, [job, token, onOutputCreated, title, initialTitle, works])
 
+  const selectedRecording = recordings.find((recording) => recording.id === recordingId)
+  const missingRecording = Boolean(recordingId && !selectedRecording)
   const modelReady = models.find((model) => model.id === modelId)?.status === 'installed'
   const running = job !== null && !['completed', 'failed', 'cancelled'].includes(job.status)
-  const model = models.find((item) => item.id === modelId)
-  const installing = job?.kind === 'model_install' && job.status === 'downloading'
-  const recordingOptions = recordings.map((recording) => ({
+  const visibleHistory = history.filter((item) => work ? item.workspace_id === work.id : !item.workspace_id)
+  const recordingOptions = recordings.map((recording, index) => ({
     value: recording.id,
-    title: new Date(recording.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' }),
-    detail: `${recording.duration_seconds.toFixed(0)}초 녹음`,
+    title: recording.name || getVoiceName(recording.id, `저장한 목소리 ${index + 1}`),
+    detail: `${formatRecordingDate(recording.created_at)} · ${recording.duration_seconds.toFixed(0)}초 녹음`,
+    disabled: running || submitting,
     icon: <span aria-hidden="true">♫</span>,
   }))
-  const modelOptions = models.map((item) => ({
-    value: item.id,
-    title: item.id === baselineModel ? 'Qwen3-TTS 0.6B Base' : item.id,
-    detail: item.language === 'Korean' ? '한국어' : item.language,
-    icon: <span aria-hidden="true">◉</span>,
-    status: <span className={`generation-model-card-status generation-model-card-status--${item.status}`}>{item.status === 'installed' ? '설치됨' : item.status === 'installing' ? '설치 중' : '설치 필요'}</span>,
-    disabled: checking,
-  }))
-
-  async function installBaselineModel() {
-    setError('')
-    try {
-      setJob(await installModel(token, modelId, acceptLicense))
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '모델 다운로드를 시작하지 못했습니다.')
-    }
-  }
-
-  async function cancelInstallation() {
-    if (!job) return
-    try {
-      await cancelJob(token, job.id)
-      setError('다운로드 취소를 요청했습니다. 이미 받은 모델 파일은 다음 시도에서 이어받을 수 있습니다.')
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : '다운로드를 취소하지 못했습니다.')
-    }
-  }
-
   async function generate() {
+    if (submitLock.current || !worksLoaded || !jobsLoaded || !selectedRecording) return
+    submitLock.current = true
+    setSubmitting(true)
     setError('')
     try {
-      const next = await createGeneration(token, recordingId, text.trim(), modelId)
+      const saved = await persistWork()
+      const next = expressionEnabled
+        ? await createGeneration(token, recordingId, text.trim(), modelId, saved.id, intensity)
+        : await createGeneration(token, recordingId, text.trim(), modelId, saved.id)
       setJob(next)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '음성 생성 작업을 시작하지 못했습니다.')
+    } finally {
+      submitLock.current = false
+      setSubmitting(false)
     }
   }
 
   return (
     <div className="generation-workspace">
+      <div className="workspace-toolbar">
+        <label>작업<select aria-label="저장한 작업" value={work?.id ?? ''} onChange={(event) => openWork(event.target.value)} disabled={running || submitting || saving || !worksLoaded}><option value="">새 작업</option>{works.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <Button variant="secondary" onClick={() => void saveWork()} disabled={saving || submitting || running || !worksLoaded || !jobsLoaded}>{saving ? '저장 중' : '작업 저장'}</Button>
+        <span role="status">{workStatus}</span>
+      </div>
       <Card className="generation-card">
-        <div className="generation-form">
-          <div className="generation-form__voice">
-            {recordings.length > 0 && <>
-              <h2 className="generation-choice-title">읽을 목소리</h2>
-              <ChoiceCardGroup name="generation-voice" legend="읽을 목소리" options={recordingOptions} value={recordingId} onChange={setRecordingId} />
-            </>}
-            {recordings.length === 0 && <FormField label="읽을 목소리"><div className="generation-no-voice" aria-label="저장된 목소리 없음">♫</div></FormField>}
-          </div>
-          <div className="generation-form__text">
-            <FormField label="동화 대본">
-              <Textarea className="generation-script-page" rows={5} maxLength={1_000} value={text} onChange={(event) => setText(event.target.value)} />
-            </FormField>
-          </div>
-          <div className="generation-form__submit">
-          <Button variant="primary" size="lg" onClick={() => void generate()} disabled={!modelReady || !recordingId || !text.trim() || checking || running}>
-            {running ? '생성 중…' : draftSource === 'recording' ? '저장된 텍스트로 음성 만들기' : draftSource === 'storybook' ? '이 동화 대본으로 음성 만들기' : '내 목소리로 생성'}
-          </Button>
-          </div>
-          <div className="generation-form__model">
-            {models.length > 0 && <>
-              <h2 className="generation-choice-title">음성 모델</h2>
-              <ChoiceCardGroup name="generation-model" legend="음성 모델" options={modelOptions} value={modelId} onChange={setModelId} />
-            </>}
-            {!checking && models.length === 0 && <p role="status" className="generation-installing">음성 모델을 불러오지 못했습니다.</p>}
-          {model?.status === 'installed' && <div className="generation-memory" role="meter" aria-label="메모리 상태" aria-valuemin={0} aria-valuemax={Math.max(model.memory_available_gib ?? 0, model.memory_recommended_free_gib)} aria-valuenow={model.memory_available_gib ?? 0} aria-valuetext={`${model.memory_available_gib?.toFixed(1) ?? '확인 불가'} GiB 사용 가능, 권장 ${model.memory_recommended_free_gib.toFixed(1)} GiB`}>
-            <span className="generation-memory__icon" aria-hidden="true">▤</span>
-            <span className="generation-memory__bar"><span style={{ width: `${Math.min(100, ((model.memory_available_gib ?? 0) / model.memory_recommended_free_gib) * 100)}%` }} /></span>
-            <output>{model.memory_available_gib?.toFixed(1) ?? '—'} / {model.memory_recommended_free_gib.toFixed(1)} GiB</output>
-          </div>}
-          </div>
-          {recordings.length > 0 && <Button variant="secondary" onClick={() => onNavigate('record')} disabled={running}>다른 대본으로 한 번 더 녹음하기</Button>}
-          {recordings.length === 0 && <div className="generation-needs-recording"><p>대본은 준비됐어요. 내 목소리를 먼저 저장하면 이 화면으로 돌아와 바로 생성할 수 있습니다.</p><Button variant="secondary" onClick={() => onNavigate('record')}>내 목소리 녹음하기</Button></div>}
-          {!checking && model?.status === 'not_installed' && (
-            <details className="model-install-disclosure">
-              <summary>모델 설치가 필요해요</summary>
-            <section className="model-install-card" aria-label="Qwen 모델 설치">
-              <strong>Qwen3-TTS 0.6B Base 설치</strong>
-              <p>공개 저장소에서 약 2.52 GB를 내려받습니다. 이 PC 모델 캐시에 {model.disk_free_gib.toFixed(1)} GiB 여유가 있습니다. 설치 파일은 Hugging Face 캐시에 보관됩니다.</p>
-              <a href="https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-Base" target="_blank" rel="noreferrer">모델 저장소와 Apache-2.0 라이선스 확인</a>
-              <label><input type="checkbox" checked={acceptLicense} onChange={(event) => setAcceptLicense(event.target.checked)} /> 라이선스와 다운로드 출처를 확인했습니다.</label>
-              <Button variant="secondary" onClick={() => void installBaselineModel()} disabled={!acceptLicense || model.disk_free_gib < 8 || running}>이 PC에 모델 설치</Button>
-              {model.disk_free_gib < 8 && <p className="recorder-error">설치 전에 모델 캐시 디스크에 8 GiB 이상 여유 공간을 확보해 주세요.</p>}
+        <div className="generation-layout">
+          <section className="generation-section generation-script-section" aria-labelledby="generation-script-title">
+            <h2 id="generation-script-title" className="generation-section__title">읽을 텍스트</h2>
+            {<label className="generation-title-field"><span>제목</span><input value={title} disabled={running || submitting || saving || !worksLoaded} onChange={(event) => setTitle(event.target.value)} placeholder="제목 입력" maxLength={48} /></label>}
+            <Textarea className="generation-script-page" aria-label="읽을 텍스트" rows={8} maxLength={1_000} value={text} disabled={running || submitting || saving || !worksLoaded} onChange={(event) => setText(event.target.value)} />
+            <span className="studio-character-count">{text.length.toLocaleString()} / 1,000</span>
+            <div className="generation-actions" role="group" aria-label="생성 동작">
+              <Button variant="primary" size="lg" onClick={() => void generate()} disabled={!modelReady || !selectedRecording || !text.trim() || checking || running || submitting || saving || !worksLoaded || !jobsLoaded}>
+                {running ? '음성을 만들고 있어요…' : job?.status === 'failed' ? '다시 생성' : '음성 만들기'}
+              </Button>
+              {recordings.length > 0
+                ? !checking && !modelReady && <Button className="generation-actions__secondary" variant="secondary" onClick={() => onNavigate('settings')} disabled={running}>음성 만들기 준비</Button>
+                : <Button className="generation-actions__secondary" variant="secondary" onClick={() => onNavigate('record')} disabled={running}>목소리 등록</Button>}
+            </div>
+          </section>
+
+          <div className="generation-options-column">
+            {(models.length > 1 || modelId !== baselineModel) && <section className="generation-section generation-engine-section" aria-labelledby="generation-engine-title">
+              <h2 id="generation-engine-title" className="generation-section__title">생성 설정</h2>
+              <label className="generation-engine-field">음성 엔진<select aria-label="음성 엔진" value={modelId} disabled={running || submitting || saving || !worksLoaded || checking} onChange={(event) => setModelId(event.target.value)}>
+                {!models.some((item) => item.id === modelId) && <option value={modelId}>사용할 수 없는 엔진</option>}
+                {models.map((item) => <option key={item.id} value={item.id}>{item.supports_expression ? '표현 음성' : '기본 음성'}{item.status !== 'installed' ? ' · 설치 필요' : ''}</option>)}
+              </select></label>
+              {expressionEnabled && <label className="generation-expression-field"><span>표현 강도 <output>{Math.round(intensity * 100)}%</output></span><input type="range" aria-label="표현 강도" aria-valuetext={`${Math.round(intensity * 100)}%`} min="0" max="1" step="0.05" value={intensity} disabled={running || submitting || saving || !worksLoaded} onChange={(event) => setIntensity(Number(event.target.value))} /></label>}
+            </section>}
+
+            <section className="generation-section generation-voice-section" aria-labelledby="generation-voice-title">
+              <h2 id="generation-voice-title" className="generation-section__title">목소리 선택</h2>
+              {recordings.length > 0
+                ? <ChoiceCardGroup name="generation-voice" legend="사용할 녹음 선택" options={recordingOptions} value={recordingId} onChange={setRecordingId} />
+                : <p className="generation-no-voice">목소리 없음</p>}
+              {missingRecording && <p role="alert" className="recorder-error">등록한 목소리를 찾을 수 없습니다. 다시 선택해 주세요.</p>}
+              {selectedRecording && <div className="voice-preview-controls"><Button variant="secondary" onClick={() => void previewVoice()} disabled={previewLoading}>{previewLoading ? '불러오는 중' : '선택한 목소리 듣기'}</Button>{previewUrl && <audio controls src={previewUrl} aria-label="선택한 목소리 미리 듣기" />}</div>}
             </section>
-            </details>
-          )}
-          {model?.status === 'installing' && <p role="status" className="generation-installing">◌ 모델 다운로드 중</p>}
-          {installing && <div className="model-download-progress"><span>{job.progress_percent === null || job.progress_percent === undefined ? '다운로드 중' : `${job.progress_percent}%`}</span><progress max="100" value={job.progress_percent ?? undefined} /><Button variant="secondary" onClick={() => void cancelInstallation()}>다운로드 취소</Button></div>}
-          {error && <p role="alert" className="recorder-error">{error}</p>}
-          {job && <div className="generation-job" role="status" aria-live="polite"><strong>{jobStatus(job.status)}</strong>{job.status === 'failed' && job.error_type && <span>오류 유형: {job.error_type}</span>}</div>}
+          </div>
         </div>
+        {(error || job) && <div className="generation-feedback">
+          {error && <p role="alert" className="recorder-error">{error}</p>}
+          {job && <div className="generation-job"><strong role="status" aria-live="polite">{jobStatus(job.status)}</strong>{running && <JobElapsed key={job.id} createdAt={job.created_at} />}{job.status === 'failed' && job.error_type && <span>오류 유형: {job.error_type}</span>}</div>}
+        </div>}
       </Card>
-      {job?.status === 'completed' && job.output && <AudioOutputCard token={token} output={job.output} />}
+      <section className="generation-history" aria-label="생성 이력"><h2>생성 이력 <span>{visibleHistory.length}</span></h2>
+        {visibleHistory.map((output) => <article key={output.id} className="generation-version">
+          {work && <Button variant={work.selected_output_id === output.id ? 'primary' : 'secondary'} disabled={saving} aria-pressed={work.selected_output_id === output.id} onClick={() => void selectFinal(output.id)}>{work.selected_output_id === output.id ? '최종 결과' : '최종 결과로 선택'}</Button>}
+          {output.expression_intensity !== undefined && <span className="generation-version-settings">표현 음성 · 강도 {Math.round(output.expression_intensity * 100)}%</span>}
+          <AudioOutputCard token={token} output={output} showTechnicalDetails={false} />
+        </article>)}
+        {visibleHistory.length === 0 && <p>생성된 음성 없음</p>}
+      </section>
     </div>
   )
 }
 
+function formatRecordingDate(value: string): string {
+  return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(value))
+}
+
 function jobStatus(status: RuntimeJob['status']): string {
   switch (status) {
-    case 'queued': return '생성 대기 중'
-    case 'loading_model': return 'CPU 모델을 불러오는 중 · 첫 실행은 시간이 더 걸릴 수 있습니다.'
-    case 'downloading': return '공개 모델 저장소에서 파일을 다운로드하고 있습니다.'
-    case 'generating': return '한국어 음성을 생성하는 중입니다.'
-    case 'completed': return '음성 생성 완료'
-    case 'failed': return '음성 생성에 실패했습니다.'
-    case 'cancelled': return '다운로드를 취소했습니다. 받은 파일은 재시도할 때 다시 사용할 수 있습니다.'
+    case 'queued': return '음성을 만들 준비를 하고 있어요.'
+    case 'loading_model': return '처음 음성을 만들 준비를 하고 있어요.'
+    case 'downloading': return '음성을 만들 준비를 하고 있어요.'
+    case 'generating': return '음성을 만들고 있어요.'
+    case 'completed': return '음성을 만들었어요.'
+    case 'failed': return '음성을 만들지 못했어요.'
+    case 'cancelled': return '작업을 취소했어요.'
   }
 }
 
 function jobError(code?: string): string {
   switch (code) {
-    case 'memory_insufficient': return '메모리가 부족해 생성하지 못했습니다. 다른 앱을 종료하고 짧은 문장으로 다시 시도해 주세요.'
-    case 'model_not_installed': return 'Qwen 모델을 설치하지 못했습니다. 설정에서 모델을 준비해 주세요.'
-    default: return '모델 실행이 실패했습니다. 로컬 앱 터미널의 오류 유형을 확인해 주세요.'
+    case 'runtime_restarted': return 'PC 앱이 재시작되어 생성이 중단되었습니다. 저장된 대본으로 다시 생성할 수 있습니다.'
+    case 'memory_insufficient': return '음성을 만들지 못했어요. 설정을 확인해 주세요.'
+    case 'model_not_installed': return '음성 만들기 준비가 필요해요. 설정을 확인해 주세요.'
+    default: return '음성을 만들지 못했어요.'
   }
+}
+
+function JobElapsed({ createdAt }: { createdAt?: string }) {
+  const [now, setNow] = useState(Date.now)
+  const started = Date.parse(createdAt ?? '')
+  useEffect(() => {
+    if (!Number.isFinite(started)) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [started])
+  if (!Number.isFinite(started)) return null
+  const elapsed = Math.max(0, Math.floor((now - started) / 1000))
+  return <time aria-label="생성 경과 시간">경과 {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}</time>
 }

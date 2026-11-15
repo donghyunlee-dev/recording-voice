@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import '@windsoft/ui/global.css'
 import './styles.css'
+import './studio-theme.css'
 import { App } from './App'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

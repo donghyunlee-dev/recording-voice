@@ -1,0 +1,137 @@
+/* Studio theme: shared semantic tokens for every production workspace. */
+:root, .app-shell, .setup-screen {
+  color-scheme: dark;
+  --font-sans: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
+  --color-background: #11151b;
+  --color-surface: #1a2029;
+  --color-surface-subtle: #222b36;
+  --color-foreground: #edf2f7;
+  --color-secondary: #c0cbd8;
+  --color-muted: #9aaabc;
+  --color-border: #3a4859;
+  --color-border-subtle: #2d3947;
+  --color-border-strong: #52647a;
+  --color-brand: #64ddce;
+  --color-brand-hover: #8be9dd;
+  --color-brand-subtle: #203d3d;
+  --color-on-brand: #102624;
+  --color-border-focus: #64ddce;
+  --color-danger: #e96270;
+  --color-success: #64ddce;
+  --color-success-subtle: #203d3d;
+  --color-success-foreground: #91eddd;
+  --font-size-body: 16px;
+  --font-size-page-title: 30px;
+  --font-size-section-title: 20px;
+  --radius-card: 12px;
+  --radius-input: 8px;
+  font-family: var(--font-sans);
+}
+:root, body, #root, .app-shell, .app-main { background: var(--color-background); color: var(--color-foreground); }
+.app-shell .page-content { max-width: 1440px; padding: 32px 40px 56px; background: var(--color-background); }
+.app-shell .studio-topbar { min-height: 76px; background: #171d25; border-color: var(--color-border-subtle); padding-inline: 32px; }
+.app-shell .brand-mark { background: var(--color-brand-subtle); color: var(--color-brand); border-radius: 10px; }
+.studio-brand strong { font-size: 16px; letter-spacing: .06em; }
+.studio-nav__item { min-height: 44px; font-size: 15px; }
+.studio-nav__item--active { color: var(--color-brand); background: var(--color-brand-subtle); }
+.app-shell .page-heading { padding: 0; }
+.app-shell .page-heading h1, .studio-dashboard__heading h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.03em; }
+.studio-dashboard { gap: 24px; max-width: none; }
+.studio-dashboard__eyebrow { font-size: 13px; }
+.studio-action { min-height: 148px; padding: 28px; border-radius: 12px; background: var(--color-surface); color: var(--color-foreground); }
+.studio-action--generate { border-color: #3d6b67; background: #1a302f; }
+.studio-action__icon { border-radius: 12px; background: #3d252d; color: #ff91a0; }
+.studio-action--generate .studio-action__icon { background: #274c47; color: #8cebdd; }
+.studio-action small { font-size: 13px; opacity: 1; color: var(--color-muted); }
+.studio-panel { border-radius: 12px; }
+.studio-panel__list strong { font-size: 16px; }
+.studio-panel__list small { font-size: 14px; line-height: 1.5; }
+.app-shell .recorder-card, .app-shell .generation-card, .app-shell .audio-output-card, .app-shell .voice-take-card {
+  border: 1px solid var(--color-border-subtle) !important; border-radius: 12px !important; padding: 24px !important;
+  color: var(--color-foreground); background: var(--color-surface) !important; box-shadow: none;
+}
+.app-shell .recorder-story-workspace { grid-template-columns: 240px minmax(0, 1fr); gap: 24px; padding: 0 0 24px; }
+.app-shell .recorder-story-selection .choice-card-group__options--grid { grid-template-columns: 1fr; gap: 12px; }
+.app-shell .recorder-story-selection .choice-card__content { display: flex; min-height: 76px; padding: 16px; }
+.app-shell .choice-card__content { border-color: var(--color-border); border-radius: 8px; background: var(--color-background); color: var(--color-foreground); }
+.app-shell .choice-card__radio:checked + .choice-card__content { border-color: var(--color-brand); background: var(--color-brand-subtle); }
+.app-shell .choice-card__text strong { color: var(--color-foreground); font-size: 16px; }
+.app-shell .choice-card__text small { color: var(--color-muted); font-size: 14px; }
+.app-shell .recorder-script-panel textarea, .app-shell .generation-script-page {
+  min-height: 320px; height: 42vh; padding: 20px !important; border: 1px solid var(--color-border) !important;
+  border-radius: 8px; color: var(--color-foreground); background: var(--color-background) !important;
+  font-family: var(--font-sans); font-size: 18px; line-height: 1.85;
+}
+.app-shell .recorder-panel-heading { display: flex; }
+.app-shell .recorder-console { padding: 16px; gap: 16px; border-radius: 10px; background: var(--color-background); box-shadow: none; }
+.app-shell .recorder-toolbar__timer { font-family: ui-monospace, monospace; font-size: 24px; letter-spacing: .04em; }
+.app-shell .recorder-control-button--record { color: #fff !important; background: #b92f46 !important; }
+.app-shell .recorder-action-row--secondary { padding-top: 20px; margin-top: 20px; }
+.app-shell .generation-layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; }
+.app-shell .generation-section { padding: 20px; border-radius: 10px; background: var(--color-background); }
+.generation-title-field, .recorder-voice-name { color: var(--color-secondary); font-size: 15px; gap: 8px; }
+.generation-title-field input, .recorder-voice-name input { min-height: 44px; border-color: var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); }
+.app-shell .warm-audio-playback, .app-shell .audio-output-playback { border-color: var(--color-border); border-radius: 10px; background: var(--color-background); padding: 16px; }
+.app-shell .recorder-preview-play, .app-shell .audio-output-play-toggle { border-radius: 8px !important; background: var(--color-brand) !important; color: var(--color-on-brand) !important; }
+.app-shell .audio-output-time, .app-shell .warm-audio-time, .app-shell .voice-take-meta time, .app-shell .audio-output-meta time { color: var(--color-muted); font-size: 14px; }
+.app-shell .audio-output-seek, .app-shell .warm-audio-seek { background: var(--color-border); accent-color: var(--color-brand); }
+.app-shell .audio-output-seek::-webkit-slider-thumb, .app-shell .warm-audio-seek::-webkit-slider-thumb { background: var(--color-brand); border-color: var(--color-surface); box-shadow: none; }
+.app-shell .audio-output-action[href], .app-shell .voice-take-action--play:not(.voice-take-action--playing), .app-shell .voice-take-duration { background: var(--color-surface-subtle) !important; color: var(--color-secondary) !important; border-color: var(--color-border) !important; }
+.app-shell .audio-output-wave, .app-shell .voice-take-wave { background: var(--color-brand-subtle); color: var(--color-brand); }
+.app-shell .transcript-reading-page { border-color: var(--color-border); background: var(--color-background); color: var(--color-foreground); }
+.app-shell .transcript-reading-page p { color: var(--color-foreground); font-family: var(--font-sans); font-size: 18px; }
+.app-shell .audio-output-toolbar, .app-shell .voice-take-toolbar { border-color: var(--color-border); }
+.app-shell button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 3px; }
+.app-shell .settings-model-install:hover:not(:disabled) {
+  border-color: var(--color-brand) !important;
+  color: var(--color-foreground) !important;
+  background: var(--color-surface-subtle) !important;
+}
+.app-shell .settings-model-install:disabled {
+  color: var(--color-muted) !important;
+  background: var(--color-surface-subtle) !important;
+}
+@media (max-width: 1000px) {
+  .app-shell .studio-topbar { flex-wrap: wrap; height: auto; padding: 16px 24px; gap: 12px; }
+  .studio-nav { order: 3; width: 100%; }
+  .app-shell .generation-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .app-shell .page-content { padding: 24px 16px 40px; }
+  .app-shell .recorder-story-workspace { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .recorder-card, .app-shell .generation-card, .app-shell .audio-output-card, .app-shell .voice-take-card { padding: 16px !important; }
+  .app-shell .recorder-story-selection .choice-card-group__options--grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .app-shell .recorder-story-selection .choice-card__content { padding: 10px; }
+  .app-shell .recorder-story-selection .choice-card__text small { display: none; }
+  .app-shell .recorder-story-selection .choice-card__text strong { font-size: 14px; }
+  .app-shell .recorder-script-panel textarea, .app-shell .generation-script-page { min-height: 260px; }
+  .app-shell .generation-section { padding: 12px; }
+  .app-shell .generation-script-page { min-height: 220px; height: clamp(220px, 32svh, 300px); padding: 16px !important; }
+  .studio-panel { padding: 20px; }
+}
+.voice-preview-controls { display: grid; gap: 12px; margin-top: 20px; }
+.voice-preview-controls audio { width: 100%; min-width: 0; }
+.studio-character-count { justify-self: end; font-size: 14px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.generation-history { display: grid; gap: 16px; margin-top: 24px; }
+.generation-history h2 { margin: 0; font-size: 20px; }
+.generation-history h2 span { color: var(--color-muted); }
+.workspace-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; padding: 20px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; }
+.workspace-toolbar label { display: grid; gap: 8px; flex: 1 1 240px; }
+.workspace-toolbar select { width: 100%; min-height: 44px; padding: 8px 12px; color: var(--color-foreground); background: var(--color-background); border: 1px solid var(--color-border); border-radius: 8px; }
+.workspace-toolbar [role=status] { align-self: center; color: var(--color-muted); font-size: 14px; }
+.generation-version { display: grid; gap: 12px; }
+.generation-version > button { justify-self: end; }
+.voice-name-editor { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 20px; }
+.voice-name-editor label { display: grid; gap: 8px; flex: 1 1 200px; font-size: 14px; color: var(--color-secondary); }
+.voice-name-editor input { min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-background); color: var(--color-foreground); }
+.input-signal-label { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: var(--color-secondary); font-size: 13px; font-variant-numeric: tabular-nums; }
+.app-shell .recorder-input-feedback { min-width: 160px; }
+
+.generation-engine-field, .generation-expression-field { display: grid; gap: 8px; color: var(--color-secondary); font-size: 15px; }
+.generation-engine-field select { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-foreground); font: inherit; }
+.generation-expression-field { margin-top: 20px; }
+.generation-expression-field > span { display: flex; justify-content: space-between; gap: 12px; }
+.generation-expression-field output { font-variant-numeric: tabular-nums; }
+.generation-expression-field input { width: 100%; min-height: 32px; accent-color: var(--color-brand); }
+
+.generation-version-settings { color: var(--color-secondary); font-size: 14px; font-variant-numeric: tabular-nums; }

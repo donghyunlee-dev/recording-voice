@@ -46,7 +46,7 @@ export const storybooks: Storybook[] = [
       {
         title: '세 형제의 새집',
         image: '/storybook/three-pigs-01-kawaii.webp',
-        imageAlt: '엄마 돼지의 배웅을 받으며 길을 떠나는 아기 돼지 삼형제',
+        imageAlt: '집을 떠나는 아기 돼지 삼형제에게 손을 흔드는 돼지',
         narration: ['아기 돼지 삼형제는 각자 살 집을 찾아 길을 떠났어요.', '첫째는 짚으로, 둘째는 나무로, 셋째는 벽돌로 집을 지었지요.'],
       },
       {

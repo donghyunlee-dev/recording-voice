@@ -1,183 +1,155 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 
-describe('App first-run flow', () => {
+describe('App storybook voice studio', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('renders saved transcript as readable story content', async () => {
-    const user = userEvent.setup()
-    const transcript = '엄마와 아이가 함께 읽는 이야기입니다.\n마지막 문장도 그대로 남아요.'
-    vi.stubGlobal('fetch', stubReadyRuntime('installed', [{
-      id: 'saved-take', transcript, created_at: '2026-11-03T00:00:00Z',
+  it('opens on a book list with voices secondary and no LNB', async () => {
+    vi.stubGlobal('fetch', readyRuntimeFetch('installed', [{
+      id: 'saved-take', transcript: '엄마 목소리', created_at: '2026-11-03T00:00:00Z',
       duration_seconds: 4, sample_rate: 24_000, channels: 1, bytes: 192_044,
     }]))
     render(<App />)
 
-    await connectToRuntime(user)
-    await user.click(screen.getByRole('link', { name: '저장한 녹음' }))
-
-    const readingPage = await screen.findByRole('region', { name: '저장한 녹음 대본' })
-    expect(readingPage.querySelector('p')?.textContent).toBe(transcript)
-  })
-
-  it('shows the detected runtime state and keeps recording hidden until pairing', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('runtime unavailable')))
-    render(<App />)
-
-    expect(await screen.findByRole('heading', { name: 'PC 앱을 찾지 못했어요' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '연결 다시 확인' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '설치 안내' })).toBeVisible()
-    expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '이 PC에 모델 설치' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '스튜디오' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: /내 목소리/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /예시 동화 보기/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /목소리 녹음/ })).toBeVisible()
     expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '녹음 스튜디오' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/모델|메모리|RAM|Qwen/i)).not.toBeInTheDocument()
   })
 
-  it('automatically opens recording when the runtime is already detected', async () => {
-    vi.stubGlobal('fetch', stubReadyRuntime('installed'))
+  it('opens a book before conversion and leaves listening unavailable', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', readyRuntimeFetch('installed'))
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
-    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
-    expect(screen.queryByRole('button', { name: '이 PC에 연결' })).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('터미널 페어링 코드')).not.toBeInTheDocument()
-    expect(screen.queryByText('LOCAL VOICE WORKSPACE')).not.toBeInTheDocument()
-    expect(screen.queryByText('개인 음성 작업공간')).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /예시 동화 보기/ }))
+
+    expect(screen.getByText('백설공주')).toBeVisible()
+    expect(screen.getByRole('region', { name: '동화 본문' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '듣기' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '목소리 등록' })).toBeVisible()
   })
 
-  it('opens the recording studio as soon as pairing finds the installed model', async () => {
+  it('keeps a voice after deletion fails and permits retry without duplicate requests', async () => {
     const user = userEvent.setup()
-    const fetchMock = stubReadyRuntime('installed')
+    const fetchMock = readyRuntimeFetch('installed', [{ id: 'saved-take', transcript: '보존할 대본', created_at: '2026-11-03T00:00:00Z', duration_seconds: 4, sample_rate: 24000, channels: 1, bytes: 192044 }])
     vi.stubGlobal('fetch', fetchMock)
-    render(<App />)
-
-    await connectToRuntime(user)
-
-    expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
-    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
-    expect(screen.getByRole('link', { name: '저장한 녹음' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '마이크 연결' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '로컬 앱 다시 연결' })).toBeVisible()
-    expect(screen.queryByText('내 PC와 안전하게 연결되었습니다')).not.toBeInTheDocument()
-    expect(screen.queryByText(/녹음한 목소리와 정확한 대본을 저장하면/)).not.toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(6)
-    expect(fetchMock.mock.calls.some(([, init]) => new Headers(init?.headers).get('Authorization') === 'Bearer memory-token')).toBe(true)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    try {
+      render(<App />)
+      await user.click(await screen.findByRole('button', { name: '내 목소리' }))
+      let finish!: (response: Response) => void
+      fetchMock.mockReset().mockImplementation(() => new Promise<Response>((resolve) => { finish = resolve }))
+      const remove = screen.getByRole('button', { name: '녹음 삭제' })
+      await user.click(remove)
+      expect(remove).toBeDisabled()
+      await user.click(remove)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      finish({ ok: false, status: 503, json: async () => ({ detail: { code: 'runtime_unavailable' } }) } as Response)
+      expect(await screen.findByRole('alert')).toHaveTextContent('로컬 앱')
+      expect(screen.getByText('보존할 대본')).toBeVisible()
+      expect(remove).toBeEnabled()
+      fetchMock.mockResolvedValue({ ok: true, status: 204 } as Response)
+      await user.click(remove)
+      await waitFor(() => expect(screen.queryByText('보존할 대본')).not.toBeInTheDocument())
+    } finally { confirm.mockRestore() }
   })
 
-  it('keeps recording available when the model still needs setup', async () => {
+  it('keeps saved voice playback and deletion available from voice management', async () => {
     const user = userEvent.setup()
-    vi.stubGlobal('fetch', stubReadyRuntime('not_installed'))
-    render(<App />)
-
-    await connectToRuntime(user)
-
-    expect(await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })).toBeVisible()
-    expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeVisible()
-    expect(screen.getByRole('button', { name: '마이크 연결' })).toBeVisible()
-  })
-
-  it('shows the settings guide from the ready recording workspace', async () => {
-    const user = userEvent.setup()
-    vi.stubGlobal('fetch', stubReadyRuntime('installed'))
-    render(<App />)
-
-    await connectToRuntime(user)
-    await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
-    await user.click(screen.getByRole('link', { name: '설정 및 설치' }))
-
-    expect(await screen.findByRole('heading', { name: '설정', level: 1 })).toBeVisible()
-    expect(screen.getByText('OS')).toBeVisible()
-    expect(await screen.findByRole('img', { name: '음성 모델 설치됨' })).toBeVisible()
-    await user.click(screen.getByRole('button', { name: /설치 및 연결/ }))
-    expect(screen.getByRole('link', { name: 'VoiceStudioSetup.exe' })).toHaveAttribute('href', '/install/windows/VoiceStudioSetup.exe')
-    expect(screen.getByRole('link', { name: '설치 가이드' })).toHaveAttribute('href', '/install/windows-wsl.md')
-    expect(screen.getByRole('button', { name: '설정' })).toBeVisible()
-  })
-
-  it('guides a saved voice take to the text-to-speech screen', async () => {
-    const user = userEvent.setup()
-    const fetchMock = stubReadyRuntime('installed', [{
-      id: 'saved-take', transcript: '안녕하세요. 이것은 녹음 대본입니다.', created_at: '2026-11-03T00:00:00Z',
+    const transcript = '엄마와 아이가 함께 읽는 이야기입니다.\n마지막 문장도 그대로 남아요.'
+    const fetchMock = readyRuntimeFetch('installed', [{
+      id: 'saved-take', transcript, created_at: '2026-11-03T00:00:00Z',
       duration_seconds: 4, sample_rate: 24_000, channels: 1, bytes: 192_044,
     }])
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    await connectToRuntime(user)
-    await screen.findByRole('button', { name: /저장한 목소리로 음성 만들기/ })
-    await user.click(screen.getByRole('link', { name: '저장한 녹음' }))
-
-    expect(await screen.findByRole('heading', { name: '저장한 녹음', level: 1 })).toBeVisible()
-    expect(screen.getByText('안녕하세요. 이것은 녹음 대본입니다.')).toBeVisible()
-    expect(screen.getByText('4초')).toBeVisible()
+    await user.click(await screen.findByRole('button', { name: '내 목소리' }))
+    expect(screen.getByRole('region', { name: '저장한 녹음 대본' }).querySelector('p')?.textContent).toBe(transcript)
+    expect(screen.getByRole('button', { name: '듣기' })).toBeVisible()
     expect(screen.getByRole('button', { name: '녹음 삭제' })).toBeVisible()
-    expect(screen.queryByText(/녹음과 함께 저장한 대본을 다시 듣고/)).not.toBeInTheDocument()
-    expect(screen.queryByText('내 PC와 안전하게 연결되었습니다')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '로컬 앱 다시 연결' })).toBeVisible()
-    expect(document.querySelector('time')).toHaveAttribute('dateTime', '2026-11-03T00:00:00Z')
 
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    await user.click(screen.getByRole('button', { name: '녹음 삭제' }))
-    expect(confirm).toHaveBeenCalled()
-    confirm.mockRestore()
-
-    await user.click(screen.getByRole('link', { name: '녹음 스튜디오' }))
-    await screen.findByRole('button', { name: /저장한 목소리로 음성 만들기/ })
-    await user.click(screen.getByRole('button', { name: /저장한 목소리로 음성 만들기/ }))
-
-    expect(await screen.findByRole('heading', { name: '음성 생성' })).toBeVisible()
-    expect(screen.getByRole('group', { name: '읽을 목소리' })).toBeVisible()
-    expect(screen.getByRole('group', { name: '음성 모델' })).toBeVisible()
-    expect(screen.getByLabelText('동화 대본')).toBeVisible()
-    expect(screen.getByRole('button', { name: '내 목소리로 생성' })).toBeVisible()
-    expect(screen.getByText('설치됨')).toBeVisible()
-    expect(screen.getByRole('meter', { name: '메모리 상태' })).toHaveAttribute('aria-valuenow', '5.8')
-    expect(screen.queryByText('2단계 · 내 목소리로 읽어보기')).not.toBeInTheDocument()
-    expect(screen.queryByText(/짧은 음성 결과를 만듭니다/)).not.toBeInTheDocument()
-    expect(screen.queryByText('생성 설정')).not.toBeInTheDocument()
-    expect(screen.queryByText(/다른 녹음으로도 결과를 비교할 수 있어요/)).not.toBeInTheDocument()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const originalCreateObjectURL = URL.createObjectURL
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn().mockReturnValue('blob:saved-take') })
+    fetchMock.mockReset().mockResolvedValue({ ok: true, blob: async () => new Blob(['wav']) } as Response)
+    try {
+      await user.click(screen.getByRole('button', { name: '듣기' }))
+      await waitFor(() => expect(play).toHaveBeenCalledTimes(1))
+      const player = screen.getByLabelText('저장된 음성 재생')
+      fireEvent.play(player)
+      expect(screen.getByRole('button', { name: '일시정지' })).toBeEnabled()
+      fireEvent.ended(player)
+      await user.click(screen.getByRole('button', { name: '다시 듣기' }))
+      await waitFor(() => expect(play).toHaveBeenCalledTimes(2))
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      play.mockRestore()
+      if (originalCreateObjectURL) Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL })
+      else Reflect.deleteProperty(URL, 'createObjectURL')
+    }
   })
 
-  it('opens a preset story and preloads its script into voice generation', async () => {
-    const user = userEvent.setup()
-    vi.stubGlobal('fetch', stubReadyRuntime('installed'))
+  it('keeps the installer screen when the PC app is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('runtime unavailable')))
     render(<App />)
 
-    await connectToRuntime(user)
-    await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
-    await user.click(screen.getByRole('link', { name: '동화책' }))
-    await user.click(screen.getByRole('button', { name: /빨간 모자/ }))
-    await user.click(screen.getByRole('button', { name: '이 이야기로 음성 만들기' }))
+    expect(await screen.findByRole('heading', { name: 'PC 앱을 찾지 못했어요' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '연결 다시 확인' })).toBeVisible()
+    expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument()
+  })
 
-    expect(await screen.findByRole('heading', { name: '음성 생성' })).toBeVisible()
-    const scriptField = screen.getByLabelText('동화 대본')
-    expect((scriptField as HTMLTextAreaElement).value).toContain('빨간 모자는 아픈 할머니께 드릴 바구니를 들고 숲길을 걸었어요.')
-    expect(screen.getByRole('button', { name: '이 동화 대본으로 음성 만들기' })).toBeVisible()
+  it('opens settings from the studio header and shows technical setup there', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', readyRuntimeFetch('installed'))
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '설정' }))
+
+    expect(screen.getByRole('heading', { name: '설정' })).toBeVisible()
+    expect(screen.getByText('OS')).toBeVisible()
+    expect(await screen.findByText('음성 변환 준비')).toBeVisible()
+    expect(await screen.findByText('준비됨')).toBeVisible()
+    expect(screen.getByText('RAM')).toBeVisible()
+  })
+
+  it('routes a saved voice into book conversion with a per-book voice choice', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', readyRuntimeFetch('installed', [{
+      id: 'saved-take', transcript: '엄마 목소리', created_at: '2026-11-03T00:00:00Z',
+      duration_seconds: 4, sample_rate: 24_000, channels: 1, bytes: 192_044,
+    }]))
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: /예시 동화 보기/ }))
+    await user.click(screen.getAllByRole('button', { name: '음성 만들기' }).at(-1)!)
+
+    expect(await screen.findByRole('heading', { name: '음성 만들기' })).toBeVisible()
+    expect((screen.getByRole('textbox', { name: '읽을 텍스트' }) as HTMLTextAreaElement).value).toContain('백설공주')
+    expect(screen.getByRole('radio', { name: /저장한 목소리 1/ })).toBeChecked()
+    expect(screen.queryByText(/Qwen|모델|메모리|RAM/i)).not.toBeInTheDocument()
   })
 })
 
-function stubReadyRuntime(modelStatus: 'installed' | 'not_installed', recordings: unknown[] = []) {
-  return vi.fn()
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', os: 'Windows' }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ status: 'ok', version: '0.1.0', api_version: 'v1', os: 'Windows' }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ access_token: 'memory-token', expires_in: 43200, token_type: 'Bearer' }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ os: 'Windows', architecture: 'AMD64', cpu_logical_count: 12, memory_total_gib: 16, memory_available_gib: 8, model_cache_disk_free_gib: 20 }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ items: recordings }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [] }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [{
-      id: 'qwen3-tts-0.6b-base', repository: 'Qwen/Qwen3-TTS-12Hz-0.6B-Base', revision: 'fixed-revision',
-      status: modelStatus, language: 'Korean', license: 'Apache-2.0', download_size_bytes: 2_520_000_000,
-      disk_free_gib: 20, memory_available_gib: 5.8, memory_recommended_free_gib: 5.7,
-    }] }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ items: [{
-      id: 'qwen3-tts-0.6b-base', repository: 'Qwen/Qwen3-TTS-12Hz-0.6B-Base', revision: 'fixed-revision',
-      status: modelStatus, language: 'Korean', license: 'Apache-2.0', download_size_bytes: 2_520_000_000,
-      disk_free_gib: 20, memory_available_gib: 5.8, memory_recommended_free_gib: 5.7,
-    }] }) })
-}
-
-async function connectToRuntime(_user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('heading', { name: '먼저 내 목소리를 녹음해요' })
+function readyRuntimeFetch(modelStatus: 'installed' | 'not_installed', recordings: unknown[] = []) {
+  const model = {
+    id: 'qwen3-tts-0.6b-base', repository: 'Qwen/Qwen3-TTS-12Hz-0.6B-Base', revision: 'fixed-revision',
+    status: modelStatus, language: 'Korean', license: 'Apache-2.0', download_size_bytes: 2_520_000_000,
+    disk_free_gib: 20, memory_available_gib: 5.8, memory_recommended_free_gib: 5.7,
+  }
+  return vi.fn(async (input: string) => {
+    const path = new URL(input).pathname.split('/').pop()
+    const data: Record<string, unknown> = {
+      health: { status: 'ok', version: '0.1.0', api_version: 'v1', capabilities: ['workspaces', 'voice_names', 'job_history'], os: 'Windows' },
+      pair: { access_token: 'memory-token', expires_in: 43200, token_type: 'Bearer' },
+      system: { os: 'Windows', architecture: 'AMD64', cpu_logical_count: 12, memory_total_gib: 16, memory_available_gib: 8, model_cache_disk_free_gib: 20 },
+      recordings: { items: recordings }, outputs: { items: [] }, workspaces: { items: [] }, jobs: { items: [] }, models: { items: [model] },
+    }
+    return { ok: true, json: async () => data[path!] } as Response
+  })
 }

@@ -62,7 +62,7 @@
 
 **Gate:** local static build and browser preview load in Korean without any API/model dependency; core pages are visible and navigable. Actual Vercel Preview and localhost permission are deferred to Phase 6.
 
-**Phase 1 evidence:** `npm test` passed (2 files, 4 tests); `npm run build` passed (286.80 kB JS / 87.97 kB gzip, 89.49 kB CSS / 17.04 kB gzip); Playwright Chromium rendered desktop/mobile, recording navigation worked, and browser page errors were empty. Screenshots: `logs/voice-studio-phase1-desktop.png`, `logs/voice-studio-phase1-mobile.png`. Recording and model actions remain disabled placeholders until later phases.
+**Phase 1 evidence:** `npm test` passed (2 files, 4 tests); `npm run build` passed (286.80 kB JS / 87.97 kB gzip, 89.49 kB CSS / 17.04 kB gzip); Playwright Chromium rendered desktop/mobile, recording navigation worked, and browser page errors were empty. The desktop/mobile screenshots were reviewed and later removed from local storage. Recording and model actions remain disabled placeholders until later phases.
 
 ## Phase 2 — 로컬 API 계약, 페어링, WSL 서비스
 

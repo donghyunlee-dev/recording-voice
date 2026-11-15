@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AudioOutputCard } from './AudioOutputCard'
@@ -24,11 +24,13 @@ describe('AudioOutputCard', () => {
 
     render(<AudioOutputCard token="test-token" output={output} onDeleted={() => undefined} />)
 
-    expect(screen.getByRole('button', { name: '생성된 음성 듣기' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '듣기' })).toBeVisible()
     expect(screen.getByRole('button', { name: '결과 삭제' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '듣기' })).toHaveClass('audio-output-play-toggle')
+    expect(screen.getByRole('button', { name: '결과 삭제' })).toHaveClass('audio-output-action')
     const readingPage = screen.getByRole('region', { name: '생성 대본' })
     expect(readingPage.querySelector('p')?.textContent).toBe(transcript)
-    expect(screen.getByRole('time')).toHaveAttribute('dateTime', output.created_at)
+    expect(screen.getAllByRole('time').find((element) => element.hasAttribute('datetime'))!).toHaveAttribute('dateTime', output.created_at)
     expect(screen.getByText('13.4초')).toBeVisible()
 
     const details = screen.getByRole('group', { name: '파일 정보' })
@@ -37,6 +39,70 @@ describe('AudioOutputCard', () => {
     expect(screen.getByText('모델 준비 52.9초')).not.toBeVisible()
     details.querySelector('summary')?.click()
     expect(screen.getByText('24,000 Hz')).toBeVisible()
+  })
+
+  it('starts playback from the first click and places the player in its own spaced row', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(['wav']) } as Response)
+    vi.stubGlobal('fetch', fetchMock)
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+    const originalCreateObjectURL = URL.createObjectURL
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn().mockReturnValue('blob:generated-output') })
+
+    try {
+      render(<AudioOutputCard token="test-token" output={{
+        id: 'output-1', text: '생성된 문장입니다.', created_at: '2026-11-05T00:13:39Z', duration_seconds: 13.4,
+        sample_rate: 24_000, bytes: 42_000, model_id: 'qwen3-tts-0.6b-base', recording_id: 'recording-1',
+        generation_seconds: 344.4, model_load_seconds: 52.9, peak_rss_mib: 3_800,
+      }} />)
+
+      await user.click(screen.getByRole('button', { name: '듣기' }))
+      await waitFor(() => expect(play).toHaveBeenCalledTimes(1))
+      const player = screen.getByLabelText('생성된 음성 재생')
+      expect(player).toBeVisible()
+      expect(player.parentElement).toHaveClass('audio-output-playback')
+      expect(player.parentElement?.previousElementSibling).toHaveClass('audio-output-toolbar')
+      expect(player.parentElement?.nextElementSibling).toHaveClass('transcript-reading-page')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'WAV 다운로드' })).toHaveClass('audio-output-action')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      play.mockRestore()
+      if (originalCreateObjectURL) Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: originalCreateObjectURL })
+      else Reflect.deleteProperty(URL, 'createObjectURL')
+    }
+  })
+
+  it('offers download before playback', () => {
+    render(<AudioOutputCard token="test-token" output={{
+      id: 'output-1', text: '내보낼 문장', created_at: '2026-11-05T00:13:39Z', duration_seconds: 13.4,
+      sample_rate: 24_000, bytes: 42_000, model_id: 'qwen3-tts-0.6b-base', recording_id: 'recording-1',
+      generation_seconds: 344.4, model_load_seconds: 52.9, peak_rss_mib: 3_800,
+    }} />)
+    expect(screen.getByRole('button', { name: 'WAV 다운로드' })).toBeEnabled()
+  })
+
+  it('discards audio arriving after leaving the results screen without allocating a URL', async () => {
+    let finish!: (blob: Blob) => void
+    const pending = new Promise<Blob>((resolve) => { finish = resolve })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: () => pending }))
+    const original = URL.createObjectURL
+    const createUrl = vi.fn().mockReturnValue('blob:late-result')
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl })
+    try {
+      const view = render(<AudioOutputCard token="test-token" output={{
+        id: 'output-1', text: '문장', created_at: '2026-11-05T00:13:39Z', duration_seconds: 13.4,
+        sample_rate: 24_000, bytes: 42_000, model_id: 'qwen3-tts-0.6b-base', recording_id: 'recording-1',
+        generation_seconds: 344.4, model_load_seconds: 52.9, peak_rss_mib: 3_800,
+      }} />)
+      await userEvent.click(screen.getByRole('button', { name: '듣기' }))
+      view.unmount()
+      await act(async () => { finish(new Blob(['wav'])); await pending })
+      expect(createUrl).not.toHaveBeenCalled()
+    } finally {
+      if (original) Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: original })
+      else Reflect.deleteProperty(URL, 'createObjectURL')
+    }
   })
 
   it('does not delete a result when the user cancels the confirmation', async () => {

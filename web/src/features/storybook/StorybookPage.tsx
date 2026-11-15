@@ -1,21 +1,37 @@
 import { Button, Card, ProductGrid, Typography } from '@windsoft/ui'
-import { useState } from 'react'
+import { useEffect, useRef, useState, type TouchEvent } from 'react'
 import { storybooks, storyScript, type Storybook } from './storybookData'
+import { AudioOutputCard } from '../results/AudioOutputCard'
+import type { LocalOutput, LocalRecording } from '../../api/localRuntime'
 
 interface StorybookPageProps {
   onGenerateSpeech: (text: string) => void
+  initialStory?: Storybook | null
+  token?: string | null
+  recordings?: LocalRecording[]
+  outputs?: LocalOutput[]
+  onOutputDeleted?: (id: string) => void
+  onRegisterVoice?: () => void
+  onBack?: () => void
+  listenOnly?: boolean
 }
 
-export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
-  const [activeStory, setActiveStory] = useState<Storybook | null>(null)
+export function StorybookPage({ onGenerateSpeech, initialStory = null, token, recordings = [], outputs = [], onOutputDeleted, onRegisterVoice, onBack, listenOnly = false }: StorybookPageProps) {
+  const [activeStory, setActiveStory] = useState<Storybook | null>(initialStory)
   const [activeScene, setActiveScene] = useState(0)
+  const touchStartX = useRef<number | null>(null)
+
+  useEffect(() => {
+    setActiveStory(initialStory)
+    setActiveScene(0)
+  }, [initialStory])
 
   if (!activeStory) {
     return <div className="page-stack storybook-page">
       <div className="page-heading">
         <div className="storybook-welcome">
-          <img src="/storybook/reading-together.svg" alt="엄마와 아이가 함께 읽는 동화책" />
-          <Typography variant="h1">동화책 미리보기</Typography>
+          <img src="/storybook/reading-together.svg" alt="함께 읽는 동화책" />
+          <Typography variant="h1">동화책</Typography>
         </div>
       </div>
       <ProductGrid className="storybook-catalog" items={storybooks} renderCard={(story) => <StorybookCard key={story.id} story={story} onSelect={() => { setActiveStory(story); setActiveScene(0) }} />} />
@@ -23,14 +39,26 @@ export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
   }
 
   const scene = activeStory.scenes[activeScene]
+  const sceneCount = activeStory.scenes.length
+  const script = normalizeText(storyScript(activeStory))
+  const storyOutputs = outputs.filter((output) => normalizeText(output.text) === script)
+
+  function handleSceneSwipe(event: TouchEvent<HTMLDivElement>) {
+    const startX = touchStartX.current
+    touchStartX.current = null
+    if (startX === null) return
+    const distance = event.changedTouches[0].clientX - startX
+    if (Math.abs(distance) < 55) return
+    setActiveScene((current) => Math.max(0, Math.min(sceneCount - 1, current + (distance < 0 ? 1 : -1))))
+  }
 
   return <div className="page-stack storybook-page">
     <div className="storybook-toolbar">
-      <Button className="storybook-toolbar__back" variant="secondary" aria-label="동화 목록으로" onClick={() => setActiveStory(null)}>‹</Button>
+      <Button className="storybook-toolbar__back" variant="secondary" aria-label="메인으로 돌아가기" onClick={() => onBack ? onBack() : setActiveStory(null)}>‹</Button>
       <span>{activeStory.title}</span>
     </div>
     <Card className="storybook-viewer-card">
-      <div className="storybook-spread" role="group" aria-label="펼친 동화책">
+      <div className="storybook-spread" role="group" aria-label="펼친 동화책" onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX }} onTouchEnd={handleSceneSwipe}>
         <figure className="storybook-illustration-page">
           <div className="storybook-viewer__art">
             <img src={scene.image} alt={`${activeStory.title} · 장면 ${activeScene + 1}: ${scene.imageAlt}`} />
@@ -40,20 +68,27 @@ export function StorybookPage({ onGenerateSpeech }: StorybookPageProps) {
           <div className="storybook-reading-page__text">
             {scene.narration.map((line) => <p key={line}>{line}</p>)}
           </div>
-          <div className="storybook-reading-page__navigation">
-            <Button className="storybook-scene-nav" variant="secondary" aria-label="이전 장면" onClick={() => setActiveScene((current) => Math.max(0, current - 1))} disabled={activeScene === 0}>‹</Button>
-            <Button className="storybook-scene-nav" variant="secondary" aria-label="다음 장면" onClick={() => setActiveScene((current) => Math.min(activeStory.scenes.length - 1, current + 1))} disabled={activeScene === activeStory.scenes.length - 1}>›</Button>
+          <div className="storybook-scene-dots" role="group" aria-label="장면 선택">
+            {activeStory.scenes.map((item, index) => <button key={item.title} type="button" aria-label={`${index + 1}장`} aria-current={activeScene === index ? 'step' : undefined} onClick={() => setActiveScene(index)}><span /></button>)}
           </div>
         </section>
       </div>
       <div className="storybook-footer">
-        <div className="storybook-progress" role="progressbar" aria-label="장면 진행" aria-valuemin={1} aria-valuemax={activeStory.scenes.length} aria-valuenow={activeScene + 1}>
-          <span style={{ width: `${((activeScene + 1) / activeStory.scenes.length) * 100}%` }} />
-        </div>
-        <Button variant="primary" size="lg" onClick={() => onGenerateSpeech(storyScript(activeStory))}>이 이야기로 음성 만들기</Button>
+        {!listenOnly && storyOutputs.length === 0 && <Button variant="secondary" disabled aria-label="듣기">듣기</Button>}
+        {!listenOnly && storyOutputs.length === 0 && (recordings.length > 0
+          ? <Button variant="primary" size="lg" onClick={() => onGenerateSpeech(storyScript(activeStory))}>음성 만들기</Button>
+          : <Button variant="primary" size="lg" onClick={onRegisterVoice}>목소리 등록</Button>)}
+        {listenOnly && storyOutputs.length === 0 && <span className="storybook-waiting-voice">아직 목소리가 없어요</span>}
       </div>
     </Card>
+    {storyOutputs.length > 0 && token && <section className="storybook-audio-list" aria-label="동화책 음성">
+      {storyOutputs.map((output) => <AudioOutputCard key={output.id} token={token} output={output} onDeleted={listenOnly ? undefined : onOutputDeleted} showTranscript={false} showTechnicalDetails={false} />)}
+    </section>}
   </div>
+}
+
+function normalizeText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ')
 }
 
 function StorybookCard({ story, onSelect }: { story: Storybook; onSelect: () => void }) {
