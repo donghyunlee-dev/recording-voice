@@ -79,12 +79,49 @@ class LocalApiSecurityTests(unittest.TestCase):
         except urllib.error.HTTPError as error:
             return error.code, error.headers, error.read()
 
+    def test_jobs_listing_requires_session_and_reports_persisted_jobs(self):
+        self.assertEqual(self.request('GET', '/jobs')[0], 401)
+        auth = {'Authorization': f'Bearer {self.token}', 'X-Local-Request': '1'}
+        status, _, body = self.request('GET', '/jobs', headers=auth)
+        self.assertEqual(status, 200)
+        self.assertIsInstance(json.loads(body)['items'], list)
+
+    def test_workspace_api_preserves_work_and_requires_session(self):
+        self.assertEqual(self.request('GET', '/workspaces')[0], 401)
+        auth = {'Authorization': f'Bearer {self.token}', 'X-Local-Request': '1'}
+        status, _, body = self.request('POST', '/workspaces', headers=auth, payload={'title': '안내 방송'})
+        self.assertEqual(status, 201)
+        workspace = json.loads(body)
+        status, _, body = self.request('POST', f"/workspaces/{workspace['id']}", headers=auth, payload={'title': '안내 방송 수정', 'text': '잠시 후 시작합니다.'})
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['text'], '잠시 후 시작합니다.')
+        status, _, body = self.request('GET', '/workspaces', headers=auth)
+        self.assertEqual(status, 200)
+        self.assertTrue(any(item['id'] == workspace['id'] for item in json.loads(body)['items']))
+        self.assertEqual(self.request('POST', '/workspaces', headers=auth, payload={'title': '   '})[0], 400)
+        self.assertEqual(self.request('POST', '/workspaces/not-an-id', headers=auth, payload={'title': 'test'})[0], 400)
+
+    def test_deleting_selected_output_clears_final_selection_and_keeps_workspace(self):
+        from local_runtime.app.storage import LocalOutputStore
+        auth = {'Authorization': f'Bearer {self.token}', 'X-Local-Request': '1'}
+        _, _, body = self.request('POST', '/workspaces', headers=auth, payload={'title': '최종 결과'})
+        work = json.loads(body)
+        output = LocalOutputStore(Path(self.data_dir.name)).save(_test_wav(), {'workspace_id': work['id']})
+        self.assertEqual(self.request('POST', f"/workspaces/{work['id']}/selection", headers=auth, payload={'output_id': output['id']})[0], 200)
+        self.assertEqual(self.request('DELETE', f"/outputs/{output['id']}", headers=auth)[0], 204)
+        _, _, body = self.request('GET', '/workspaces', headers=auth)
+        reopened = next(item for item in json.loads(body)['items'] if item['id'] == work['id'])
+        self.assertIsNone(reopened['selected_output_id'])
+        self.assertEqual(reopened['title'], '최종 결과')
+        self.assertEqual(self.request('GET', f"/outputs/{output['id']}/audio", headers=auth)[0], 404)
+
     def test_health_is_public_and_does_not_expose_local_paths(self):
         status, _, body = self.request("GET", "/health")
         self.assertEqual(status, 200)
         payload = json.loads(body)
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["os"], platform.system())
+        self.assertEqual(set(payload["capabilities"]), {"workspaces", "voice_names", "job_history"})
         self.assertNotIn("path", json.dumps(payload).lower())
 
     def test_unapproved_origin_and_host_are_rejected(self):

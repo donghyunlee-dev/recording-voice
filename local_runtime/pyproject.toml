@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-voice-runtime"
-version = "0.1.0"
+version = "0.3.1"
 description = "Loopback-only local runtime for Voice Studio"
 requires-python = ">=3.12"
 dependencies = ["fastapi>=0.115,<1", "uvicorn[standard]>=0.30,<1", "python-multipart>=0.0.18,<1"]
@@ -12,8 +12,9 @@ dependencies = ["fastapi>=0.115,<1", "uvicorn[standard]>=0.30,<1", "python-multi
 [project.optional-dependencies]
 tts = ["qwen-tts==0.1.1", "soundfile>=0.12"]
 
-[tool.setuptools.packages.find]
-include = ["local_runtime*"]
+[tool.setuptools]
+packages = ["local_runtime", "local_runtime.app"]
+package-dir = {"local_runtime" = "."}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

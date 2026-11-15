@@ -14,10 +14,13 @@ import uvicorn
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .generation import MODEL_ID, MODEL_REPO, MODEL_REVISION, ModelNotInstalled, QwenGenerator
+from .expression_generation import ExpressionGenerator, ExpressionGenerationError
+from .expression_worker import MODEL_ID as EXPRESSION_MODEL_ID, MODEL_REVISION as EXPRESSION_MODEL_REVISION
 from .jobs import JobStore
+from .workspaces import WorkspaceStore, WorkspaceError
 from .model_install import ModelInstallCancelled, ModelInstaller
 from .security import PairingManager
 from .paths import default_data_dir
@@ -33,6 +36,38 @@ class GenerationRequest(BaseModel):
     recording_id: str = Field(min_length=36, max_length=36)
     text: str = Field(min_length=1, max_length=1_000)
     model_id: str = MODEL_ID
+    expression_intensity: float | None = Field(default=None, ge=0, le=1, strict=True, allow_inf_nan=False)
+    workspace_id: str | None = Field(default=None, min_length=36, max_length=36)
+
+
+class VoiceNameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+
+class GenerationSettings(BaseModel):
+    model_id: str = MODEL_ID
+    expression_intensity: float | None = Field(default=None, ge=0, le=1, strict=True, allow_inf_nan=False)
+
+    @model_validator(mode='after')
+    def validate_model_settings(self):
+        if self.model_id not in {MODEL_ID, EXPRESSION_MODEL_ID}:
+            raise ValueError('unsupported_model')
+        if self.model_id == MODEL_ID and self.expression_intensity is not None:
+            raise ValueError('expression_not_supported')
+        if self.model_id == EXPRESSION_MODEL_ID and self.expression_intensity is None:
+            self.expression_intensity = 0.5
+        return self
+
+
+class WorkspaceRequest(BaseModel):
+    generation_settings: GenerationSettings | None = None
+    title: str = Field(min_length=1, max_length=120)
+    text: str = Field(default='', max_length=1000)
+    recording_id: str | None = Field(default=None, min_length=36, max_length=36)
+
+
+class SelectOutputRequest(BaseModel):
+    output_id: str = Field(min_length=36, max_length=36)
 
 
 class InstallModelRequest(BaseModel):
@@ -60,7 +95,12 @@ def create_app() -> FastAPI:
     recordings = LocalRecordingStore(data_dir)
     outputs = LocalOutputStore(data_dir)
     jobs = JobStore(data_dir)
+    workspaces = WorkspaceStore(data_dir)
     generator = QwenGenerator()
+    expression_generator = ExpressionGenerator(
+        python=Path(os.environ.get("LOCAL_VOICE_EXPRESSION_PYTHON", Path(sys.prefix).parent / ".venv-expression" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python"))),
+        model_directory=Path(os.environ.get("LOCAL_VOICE_EXPRESSION_MODEL_DIR", _model_cache_dir() / EXPRESSION_MODEL_ID)),
+    )
     installer = ModelInstaller()
     install_cancellations: dict[str, threading.Event] = {}
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voice-generation")
@@ -73,7 +113,7 @@ def create_app() -> FastAPI:
         yield
         executor.shutdown(wait=False, cancel_futures=True)
 
-    app = FastAPI(title="Voice Studio Local Runtime", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Voice Studio Local Runtime", version="0.3.1", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(allowed_origins),
@@ -103,7 +143,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/v1/health")
     async def health():
-        return {"status": "ok", "version": app.version, "api_version": "v1", "os": platform.system()}
+        return {"status": "ok", "version": app.version, "api_version": "v1", "os": platform.system(), "capabilities": ["workspaces", "voice_names", "job_history"]}
 
     @app.post("/api/v1/pair")
     async def pair(payload: PairRequest, request: Request, x_local_request: str | None = Header(default=None)):
@@ -141,6 +181,7 @@ def create_app() -> FastAPI:
     async def save_recording(
         file: UploadFile = File(...),
         transcript: str = Form(...),
+        name: str = Form(default=""),
         authorization: str | None = Header(default=None),
         x_local_request: str | None = Header(default=None),
     ):
@@ -151,7 +192,7 @@ def create_app() -> FastAPI:
         if len(audio) > 24 * 1024 * 1024:
             raise HTTPException(status_code=413, detail={"code": "recording_too_large"})
         try:
-            return recordings.save(audio, transcript)
+            return recordings.save(audio, transcript, name=name)
         except RecordingError as error:
             raise HTTPException(status_code=400, detail={"code": str(error)}) from error
 
@@ -162,6 +203,14 @@ def create_app() -> FastAPI:
     ):
         require_session(authorization, x_local_request)
         return {"items": recordings.list()}
+
+    @app.post('/api/v1/recordings/{recording_id}/name')
+    async def rename_recording(recording_id: str, payload: VoiceNameRequest, authorization: str | None = Header(default=None), x_local_request: str | None = Header(default=None)):
+        require_session(authorization, x_local_request)
+        try:
+            return recordings.rename(recording_id, payload.name)
+        except RecordingError as error:
+            raise HTTPException(status_code=404 if str(error) == 'recording_not_found' else 400, detail={'code': str(error)}) from error
 
     @app.get("/api/v1/recordings/{recording_id}/audio")
     async def get_recording_audio(
@@ -202,7 +251,13 @@ def create_app() -> FastAPI:
         model_installed = generator.is_installed()
         is_installing = any(job.get("kind") == "model_install" and job.get("status") == "downloading" for job in jobs.list())
         cache_disk_free = round(shutil.disk_usage(_model_cache_dir() if _model_cache_dir().exists() else _model_cache_dir().parent).free / (1024**3), 2)
-        return {"items": [{"id": MODEL_ID, "repository": MODEL_REPO, "revision": MODEL_REVISION, "status": "installed" if model_installed else "installing" if is_installing else "not_installed", "language": "Korean", "license": "Apache-2.0", "download_size_bytes": 2_520_000_000, "disk_free_gib": cache_disk_free, "memory_available_gib": memory_available_gib(), "memory_recommended_free_gib": 5.7}]}
+        items = [{"id": MODEL_ID, "repository": MODEL_REPO, "revision": MODEL_REVISION, "status": "installed" if model_installed else "installing" if is_installing else "not_installed", "language": "Korean", "license": "Apache-2.0", "download_size_bytes": 2_520_000_000, "disk_free_gib": cache_disk_free, "memory_available_gib": memory_available_gib(), "memory_recommended_free_gib": 5.7}]
+        if expression_generator.is_installed():
+            items.append({"id": EXPRESSION_MODEL_ID, "repository": "ResembleAI/chatterbox", "revision": EXPRESSION_MODEL_REVISION,
+                          "status": "installed", "language": "Korean", "license": "MIT", "supports_expression": True,
+                          "download_size_bytes": 3_243_411_517, "disk_free_gib": cache_disk_free,
+                          "memory_available_gib": memory_available_gib(), "memory_recommended_free_gib": 7.0})
+        return {"items": items}
 
     def run_model_install(job_id: str, cancel_event: threading.Event) -> None:
         try:
@@ -270,24 +325,68 @@ def create_app() -> FastAPI:
         cancellation.set()
         return {"status": "cancellation_requested"}
 
-    def run_generation(job_id: str, recording: dict, audio_path: Path, text: str) -> None:
+    @app.exception_handler(WorkspaceError)
+    async def workspace_error_handler(request: Request, error: WorkspaceError):
+        return _error(404 if str(error) == 'workspace_not_found' else 400, str(error))
+
+    @app.get('/api/v1/workspaces')
+    async def list_workspaces(authorization: str | None = Header(default=None), x_local_request: str | None = Header(default=None)):
+        require_session(authorization, x_local_request)
+        return {'items': workspaces.list()}
+
+    @app.post('/api/v1/workspaces', status_code=201)
+    async def create_workspace(payload: WorkspaceRequest, authorization: str | None = Header(default=None), x_local_request: str | None = Header(default=None)):
+        require_session(authorization, x_local_request)
+        return workspaces.create(payload.title)
+
+    @app.post('/api/v1/workspaces/{workspace_id}')
+    async def save_workspace(workspace_id: str, payload: WorkspaceRequest, authorization: str | None = Header(default=None), x_local_request: str | None = Header(default=None)):
+        require_session(authorization, x_local_request)
+        if payload.recording_id:
+            try:
+                recording = recordings.get(payload.recording_id)
+            except RecordingError as error:
+                raise HTTPException(status_code=400, detail={'code': str(error)}) from error
+            if recording is None:
+                raise HTTPException(status_code=404, detail={'code': 'recording_not_found'})
+        return workspaces.update(workspace_id, title=payload.title, text=payload.text, recording_id=payload.recording_id, generation_settings=payload.generation_settings.model_dump(exclude_none=True) if payload.generation_settings else None)
+
+    @app.post('/api/v1/workspaces/{workspace_id}/selection')
+    async def select_workspace_output(workspace_id: str, payload: SelectOutputRequest, authorization: str | None = Header(default=None), x_local_request: str | None = Header(default=None)):
+        require_session(authorization, x_local_request)
+        output = outputs.get(payload.output_id)
+        if output is None:
+            raise HTTPException(status_code=404, detail={'code': 'output_not_found'})
+        return workspaces.select_output(workspace_id, output)
+
+    def run_generation(job_id: str, recording: dict, audio_path: Path, text: str, workspace_id: str | None = None, model_id: str = MODEL_ID, expression_intensity: float | None = None) -> None:
         try:
-            audio, metrics = generator.generate(
-                audio_path=audio_path,
-                transcript=recording["transcript"],
-                text=text,
-                on_phase=lambda status: jobs.update(job_id, status=status),
-            )
-            output = outputs.save(audio, {
-                "model_id": MODEL_ID,
+            on_phase = lambda status: jobs.update(job_id, status=status)
+            if model_id == EXPRESSION_MODEL_ID:
+                audio, metrics = expression_generator.generate(
+                    audio_path=audio_path, text=text,
+                    intensity=expression_intensity, on_phase=on_phase,
+                )
+            else:
+                audio, metrics = generator.generate(
+                    audio_path=audio_path, transcript=recording["transcript"],
+                    text=text, on_phase=on_phase,
+                )
+            metadata = {
+                **metrics,
+                "model_id": model_id,
+                "model_revision": EXPRESSION_MODEL_REVISION if model_id == EXPRESSION_MODEL_ID else MODEL_REVISION,
                 "recording_id": recording["id"],
                 "text": text,
-                **metrics,
-            })
+                "workspace_id": workspace_id,
+            }
+            if model_id == EXPRESSION_MODEL_ID:
+                metadata["expression_intensity"] = expression_intensity
+            output = outputs.save(audio, metadata)
             jobs.update(job_id, status="completed", output_id=output["id"], output=output)
         except Exception as error:
             message = str(error).lower()
-            code = "memory_insufficient" if isinstance(error, MemoryError) or "out of memory" in message else "model_not_installed" if isinstance(error, ModelNotInstalled) else "generation_failed"
+            code = "memory_insufficient" if isinstance(error, MemoryError) or "out of memory" in message else "model_not_installed" if isinstance(error, ModelNotInstalled) else str(error) if isinstance(error, ExpressionGenerationError) else "generation_failed"
             jobs.update(job_id, status="failed", error_code=code, error_type=type(error).__name__)
 
     @app.post("/api/v1/generations", status_code=202)
@@ -297,8 +396,12 @@ def create_app() -> FastAPI:
         x_local_request: str | None = Header(default=None),
     ):
         require_session(authorization, x_local_request)
-        if payload.model_id != MODEL_ID:
+        if payload.model_id not in {MODEL_ID, EXPRESSION_MODEL_ID}:
             raise HTTPException(status_code=400, detail={"code": "unsupported_model"})
+        if payload.model_id == MODEL_ID and payload.expression_intensity is not None:
+            raise HTTPException(status_code=400, detail={"code": "expression_not_supported"})
+        if payload.workspace_id and workspaces.get(payload.workspace_id) is None:
+            raise HTTPException(status_code=404, detail={'code': 'workspace_not_found'})
         if not payload.text.strip():
             raise HTTPException(status_code=400, detail={"code": "text_required"})
         if jobs.active_count() > 0:
@@ -309,14 +412,23 @@ def create_app() -> FastAPI:
         audio_path = recordings.audio_path(payload.recording_id)
         if not audio_path.is_file():
             raise HTTPException(status_code=404, detail={"code": "recording_audio_missing"})
-        if not generator.is_installed():
+        selected_generator = expression_generator if payload.model_id == EXPRESSION_MODEL_ID else generator
+        if not selected_generator.is_installed():
             raise HTTPException(status_code=409, detail={"code": "model_not_installed"})
         available_memory_gib = memory_available_gib()
-        if not generator.is_loaded and available_memory_gib is not None and available_memory_gib < 5.7:
+        required_memory_gib = 7.0 if payload.model_id == EXPRESSION_MODEL_ID else 5.7
+        if not selected_generator.is_loaded and available_memory_gib is not None and available_memory_gib < required_memory_gib:
             raise HTTPException(status_code=409, detail={"code": "memory_insufficient"})
-        job = jobs.create("generation", model_id=MODEL_ID, recording_id=recording["id"], text=payload.text.strip())
-        executor.submit(run_generation, job["id"], recording, audio_path, payload.text.strip())
+        intensity = (0.5 if payload.expression_intensity is None else payload.expression_intensity) if payload.model_id == EXPRESSION_MODEL_ID else None
+        settings = {"expression_intensity": intensity} if intensity is not None else {}
+        job = jobs.create("generation", **settings, model_id=payload.model_id, recording_id=recording["id"], text=payload.text.strip(), workspace_id=payload.workspace_id)
+        executor.submit(run_generation, job["id"], recording, audio_path, payload.text.strip(), payload.workspace_id, payload.model_id, intensity)
         return job
+
+    @app.get('/api/v1/jobs')
+    async def list_jobs(authorization: str | None = Header(default=None), x_local_request: str | None = Header(default=None)):
+        require_session(authorization, x_local_request)
+        return {'items': sorted(jobs.list(), key=lambda item: item['created_at'], reverse=True)}
 
     @app.get("/api/v1/jobs/{job_id}")
     async def get_job(
@@ -361,6 +473,10 @@ def create_app() -> FastAPI:
     ):
         require_session(authorization, x_local_request)
         try:
+            if outputs.get(output_id) is None:
+                raise HTTPException(status_code=404, detail={"code": "output_not_found"})
+            # Clear references first so an interrupted deletion cannot leave a dangling final selection.
+            workspaces.clear_output_selection(output_id)
             deleted = outputs.delete(output_id)
         except RecordingError as error:
             raise HTTPException(status_code=400, detail={"code": str(error)}) from error

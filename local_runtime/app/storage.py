@@ -26,7 +26,10 @@ class LocalRecordingStore:
         self.root = data_dir / "recordings"
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def save(self, audio: bytes, transcript: str) -> dict[str, Any]:
+    def save(self, audio: bytes, transcript: str, name: str = '') -> dict[str, Any]:
+        name = name.strip()
+        if len(name) > 80:
+            raise RecordingError('invalid_voice_name')
         transcript = transcript.strip()
         if not transcript:
             raise RecordingError("transcript_required")
@@ -54,6 +57,7 @@ class LocalRecordingStore:
         metadata = {
             "id": recording_id,
             "transcript": transcript,
+            "name": name,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "duration_seconds": round(duration, 3),
             "sample_rate": sample_rate,
@@ -69,6 +73,16 @@ class LocalRecordingStore:
             audio_path.unlink(missing_ok=True)
             manifest_path.unlink(missing_ok=True)
             raise
+        return metadata
+
+    def rename(self, recording_id: str, name: str) -> dict[str, Any]:
+        if not name.strip() or len(name) > 80:
+            raise RecordingError('invalid_voice_name')
+        metadata = self.get(recording_id)
+        if metadata is None:
+            raise RecordingError('recording_not_found')
+        metadata['name'] = name.strip()
+        self._atomic_write(self.manifest_path(recording_id), json.dumps(metadata, ensure_ascii=False).encode('utf-8'))
         return metadata
 
     def list(self) -> list[dict[str, Any]]:

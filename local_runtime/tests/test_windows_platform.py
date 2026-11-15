@@ -34,7 +34,7 @@ class WindowsPlatformTests(unittest.TestCase):
 
     def test_linux_total_memory_uses_physical_page_count(self):
         with patch("local_runtime.app.system_info.platform.system", return_value="Linux"):
-            with patch("local_runtime.app.system_info.os.sysconf", side_effect=lambda key: 4096 if key == "SC_PHYS_PAGES" else 4096):
+            with patch("local_runtime.app.system_info.os.sysconf", create=True, side_effect=lambda key: 4096 if key == "SC_PHYS_PAGES" else 4096):
                 self.assertEqual(memory_total_gib(), 0.02)
 
 

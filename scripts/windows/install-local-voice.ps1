@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$InstallRoot,
-    [string]$AllowedOrigin = "https://recording-voice-web.vercel.app"
+    [string]$AllowedOrigin = "https://recording-voice-web.vercel.app",
+    [switch]$InstallExpression
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,6 +16,11 @@ $AppData = Join-Path $env:LOCALAPPDATA "VoiceStudio"
 $DataDir = Join-Path $AppData "data"
 $ModelCache = Join-Path $AppData "models"
 $LogsDir = Join-Path $AppData "logs"
+trap {
+    New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null
+    ($_ | Out-String) | Add-Content -Path (Join-Path $LogsDir "install-error.log") -Encoding UTF8
+    exit 1
+}
 $RuntimeDir = Join-Path $InstallRoot "python"
 $ManagerMsix = Join-Path $env:TEMP "VoiceStudio-PythonInstallManager-26.0.msix"
 $ManagerMsixUrl = "https://www.python.org/ftp/python/pymanager/python-manager-26.0.msix"
@@ -85,6 +91,11 @@ if ($LASTEXITCODE -ne 0) { throw "Could not install the Voice Studio dependencie
 if ($LASTEXITCODE -ne 0) { throw "Could not install the Voice Studio backend." }
 & $VenvPython -m pip check
 if ($LASTEXITCODE -ne 0) { throw "Voice Studio dependency validation failed." }
+
+if ($InstallExpression) {
+    Write-Step "Preparing the expressive voice engine"
+    & (Join-Path $InstallRoot "scripts\windows\install-expression-engine.ps1") -InstallRoot $InstallRoot
+}
 
 Write-Step "Starting the local backend"
 $Launcher = Join-Path $InstallRoot "scripts\windows\start-local-voice.ps1"

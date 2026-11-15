@@ -33,6 +33,17 @@ class LocalRecordingStoreTests(unittest.TestCase):
         self.assertEqual(self.store.audio_path(recording["id"]).read_bytes()[:4], b"RIFF")
         self.assertEqual(len(self.store.list()), 1)
 
+    def test_voice_name_survives_restart_and_rename_preserves_audio(self):
+        recording = self.store.save(wav_bytes(), '원본 대본', name='내 목소리')
+        audio = self.store.audio_path(recording['id']).read_bytes()
+        renamed = self.store.rename(recording['id'], '내레이션 목소리')
+        reopened = LocalRecordingStore(Path(self.temp_dir.name)).get(recording['id'])
+        self.assertEqual(reopened['name'], '내레이션 목소리')
+        self.assertEqual(renamed['transcript'], '원본 대본')
+        self.assertEqual(self.store.audio_path(recording['id']).read_bytes(), audio)
+        with self.assertRaises(RecordingError):
+            self.store.rename(recording['id'], '  ')
+
     def test_rejects_invalid_audio_shape_and_path_ids(self):
         for payload in (b"not wave", wav_bytes(sample_rate=16_000), wav_bytes(channels=2)):
             with self.subTest(payload_length=len(payload)):
